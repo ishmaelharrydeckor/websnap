@@ -132,14 +132,17 @@ Principles:
 - Keep the paid layer in clearly separated modules (or a private repo) from day one.
 - Decide the license and contribution terms before the repo goes public or accepts outside PRs.
 
-License options to decide (open question):
+**Decision: MIT** (decided by the project owner). The options below are kept for reference.
+
+License options considered:
 | Option | Effect |
 |---|---|
 | MIT (current) | Max adoption; anyone can host a competing paid copy; cannot be revoked once released |
 | AGPL-3.0 | Hosted forks must publish their changes; deters resellers; dual-license possible |
 | BSL / source-available | Blocks competing hosted use for a period; not OSI "open source" |
 | Open-core split | Core permissive/copyleft; premium code in a separate proprietary repo |
-Whatever we choose, add a CLA or DCO early; relicensing later needs contributors' consent.
+With MIT, paid value must come from hosted services, assets and extras (see above), since
+the code itself can be reused by anyone. A CLA or DCO is still worth adding early.
 
 ## Risks / notes
 - Browser capture APIs vary by browser; feature-detect with fallbacks.
@@ -150,6 +153,6 @@ Whatever we choose, add a CLA or DCO early; relicensing later needs contributors
 
 ## Open questions
 - Final product name/branding (working name: WebSnap; to be decided later).
-- License (see Business model) and CLA/DCO choice, before going public.
+- CLA/DCO choice before accepting outside contributions (license is decided: MIT).
 - Phase 5 hosting targets (storage/DB); default assumption: S3-compatible storage + SQLite/Postgres.
 - Template content: design our own (Hero, Split, Card, Compare, device layouts).
