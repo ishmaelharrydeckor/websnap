@@ -101,6 +101,18 @@ Static/Parallax modes and zoom/tilt animation clips; MP4/WebM/GIF export.
 Upload + public links (self-hostable), screenshot-a-URL (headless browser service),
 effects (noise/VHS/glitch), 3D scenes, desktop/extension wrappers.
 
+## Templates
+Templates are JSON documents in our own model that keep the user's content when swapped.
+Starter set (Phase 2): Hero, Split, Card, Compare, Browser, iPhone, MacBook, Minimal.
+Each social size gets its own layout rather than a stretched one.
+
+Inspiration sources (ideas only, never copied assets):
+1. WerbSnap's template names/layouts (Hero, Split, Bleed card, Rise, Card, Long page, Compare, devices).
+2. Shots' template gallery (not yet reviewed; needs manual screenshots).
+3. High-performing real posts (Product Hunt, X, LinkedIn, app store screenshots).
+4. Public design references (Dribbble, Behance, Mobbin, Apple product pages) for layout study.
+5. Our own per-platform constraints (X, LinkedIn, Instagram, Story, OG).
+
 ## Risks / notes
 - Browser capture APIs vary by browser; feature-detect with fallbacks.
 - `ffmpeg.wasm` is large; load on demand.
