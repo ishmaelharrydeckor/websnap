@@ -15,5 +15,7 @@ export function createDefaultDocument(): DesignDocument {
     },
     frame: { style: "browser" },
     shot: { padding: 0.09, radius: 14, shadow: 55 },
+    media: [],
+    timeline: { duration: 10, clips: [] },
   };
 }

@@ -62,7 +62,12 @@ src/lib/
   export/           png/jpg/webp, zip, video
 ```
 Document sketch:
-`{ version, canvas{size,id}, background, layout, frames[], layers[], text, watermark, brand }`
+`{ version, canvas{size,id}, background, frame, shot, media[], timeline{duration,clips[]}, layers[], text, watermark, brand }`
+
+- `media[]`: images and videos in the project (a project can hold several).
+- `timeline`: a base layout plus timed animation clips (`{id, type, start, end, params}`),
+  e.g. parallax, zoom, tilt. The renderer takes a time `t`; static export is `t = 0`.
+- Parallax: background and screenshot move at different rates (plus slight scale), driven by `t`.
 
 ## Phases
 
@@ -88,8 +93,9 @@ Device registry (iPhone, iPad, MacBook, browser), multi-device layouts, perspect
 adaptive shadow, palette-based magic background, more wallpaper packs, multi-size ZIP.
 
 ### Phase 4: Video and animation
-Screen recording; timeline (trim/split/speed); zoom regions; captions; audio;
-parallax/zoom animated mockups; MP4/WebM/GIF export.
+Screen recording; timeline editor (playhead, play/loop, media filmstrip track,
+animations track, timeline zoom); trim/split/speed; zoom regions; captions; audio;
+Static/Parallax modes and zoom/tilt animation clips; MP4/WebM/GIF export.
 
 ### Phase 5: Sharing and extras
 Upload + public links (self-hostable), screenshot-a-URL (headless browser service),
@@ -103,5 +109,6 @@ effects (noise/VHS/glitch), 3D scenes, desktop/extension wrappers.
 - Respect third-party IP: take inspiration from features, not code, art or branding.
 
 ## Open questions
-- Final product name/branding (working name: WebSnap).
-- Phase 5 hosting targets (storage/DB).
+- Final product name/branding (working name: WebSnap; to be decided later).
+- Phase 5 hosting targets (storage/DB); default assumption: S3-compatible storage + SQLite/Postgres.
+- Template content: design our own (Hero, Split, Card, Compare, device layouts).
