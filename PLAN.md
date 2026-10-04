@@ -12,7 +12,7 @@ Inspiration (ideas only; no code, assets or branding are copied):
 1. **Local-first.** No account, no upload unless the user clicks Share.
 2. **One renderer.** Editor state is a JSON document; one renderer draws both the
    on-screen preview and the export.
-3. **Free and unwatermarked.** It's open source; no paywalled features.
+3. **Open core.** The local editor stays open source and free. Paid features are layered on later (see Business model).
 4. **Our own assets.** Device frames, wallpapers and fonts are drawn in code/SVG or
    openly licensed.
 
@@ -113,6 +113,34 @@ Inspiration sources (ideas only, never copied assets):
 4. Public design references (Dribbble, Behance, Mobbin, Apple product pages) for layout study.
 5. Our own per-platform constraints (X, LinkedIn, Instagram, Story, OG).
 
+## Business model (open source now, paid later)
+Approach: **open core.** The local-first editor is open source; paid tiers sit on top.
+
+Stays free and open source: the editor, import, frames, backgrounds, annotations, local
+export (PNG/JPG/WebP), local video recording/export basics, local save.
+
+Candidate paid features (hosted services and extras, not locked-down core features):
+- Hosted share links and storage, cloud sync of designs and brand kit
+- Team workspaces, shared brand kits and templates
+- Premium asset packs (wallpapers, device frames, templates)
+- AI features (e.g. generated backgrounds)
+- Higher-resolution/longer video export, batch/multi-size export
+
+Principles:
+- No watermark gating in the open-source build; anyone can remove it from source.
+  Monetise services and assets that cost money to run or produce.
+- Keep the paid layer in clearly separated modules (or a private repo) from day one.
+- Decide the license and contribution terms before the repo goes public or accepts outside PRs.
+
+License options to decide (open question):
+| Option | Effect |
+|---|---|
+| MIT (current) | Max adoption; anyone can host a competing paid copy; cannot be revoked once released |
+| AGPL-3.0 | Hosted forks must publish their changes; deters resellers; dual-license possible |
+| BSL / source-available | Blocks competing hosted use for a period; not OSI "open source" |
+| Open-core split | Core permissive/copyleft; premium code in a separate proprietary repo |
+Whatever we choose, add a CLA or DCO early; relicensing later needs contributors' consent.
+
 ## Risks / notes
 - Browser capture APIs vary by browser; feature-detect with fallbacks.
 - `ffmpeg.wasm` is large; load on demand.
@@ -122,5 +150,6 @@ Inspiration sources (ideas only, never copied assets):
 
 ## Open questions
 - Final product name/branding (working name: WebSnap; to be decided later).
+- License (see Business model) and CLA/DCO choice, before going public.
 - Phase 5 hosting targets (storage/DB); default assumption: S3-compatible storage + SQLite/Postgres.
 - Template content: design our own (Hero, Split, Card, Compare, device layouts).
