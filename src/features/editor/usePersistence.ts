@@ -15,6 +15,8 @@ export function usePersistence() {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let lastSaved = -1;
+    // Blobs are immutable per id, so each one only needs writing once (videos can be large).
+    const storedBlobs = new Set<string>();
     let unsubscribe: (() => void) | undefined;
 
     async function restore() {
@@ -31,6 +33,7 @@ export function usePersistence() {
         const audioResults = await Promise.allSettled(entries.filter(([, blob]) => isAudioBlob(blob)).map(([id, blob]) => loadAudio(blob, id)));
         const audios = audioResults.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
         if (cancelled) return;
+        for (const id of Object.keys(saved.blobs)) storedBlobs.add(id);
         editorStore.getState().load(saved.doc, images, audios);
         lastSaved = editorStore.getState().revision;
       } catch {
@@ -45,9 +48,11 @@ export function usePersistence() {
         clearTimeout(timer);
         timer = setTimeout(async () => {
           const { doc, images, audios, revision } = editorStore.getState();
-          const blobs = Object.fromEntries(collectAssetIds(doc).map((id) => [id, images[id]?.blob ?? audios[id]?.blob]).filter(([, b]) => b));
+          const fresh = collectAssetIds(doc).filter((id) => !storedBlobs.has(id));
+          const blobs = Object.fromEntries(fresh.map((id) => [id, images[id]?.blob ?? audios[id]?.blob]).filter(([, b]) => b));
           try {
             await saveCurrentDesign(doc, blobs as Record<string, Blob>);
+            for (const id of Object.keys(blobs)) storedBlobs.add(id);
             lastSaved = revision;
           } catch {
             // Ignore: autosave is best-effort.
