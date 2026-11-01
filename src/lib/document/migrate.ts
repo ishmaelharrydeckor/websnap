@@ -18,6 +18,7 @@ export function normalizeDocument(saved: Partial<DesignDocument>): DesignDocumen
     shot: { ...d.shot, ...saved.shot },
     headline: { ...d.headline, ...saved.headline },
     watermark: { ...d.watermark, ...saved.watermark },
+    effects: sanitizeEffects({ ...d.effects, ...saved.effects }),
     media: saved.media ?? d.media,
     layers: saved.layers ?? d.layers,
     timeline: { ...d.timeline, ...saved.timeline, sound: { ...d.timeline.sound, ...saved.timeline?.sound } },
@@ -31,4 +32,10 @@ const clampSize = (n: unknown, fallback: number) =>
 /** A zero, negative or absurd canvas size would crash the renderer, so pull it back into range. */
 function sanitizeCanvas(c: DesignDocument["canvas"], fallback: DesignDocument["canvas"]): DesignDocument["canvas"] {
   return { ...c, width: clampSize(c.width, fallback.width), height: clampSize(c.height, fallback.height) };
+}
+
+const unit = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
+
+function sanitizeEffects(e: DesignDocument["effects"]): DesignDocument["effects"] {
+  return { noise: unit(e.noise), vhs: unit(e.vhs), glitch: unit(e.glitch) };
 }

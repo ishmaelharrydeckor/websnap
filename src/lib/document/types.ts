@@ -55,6 +55,13 @@ export interface WatermarkSettings {
   text: string;
 }
 
+/** Post-processing looks, each 0 (off) to 1 (full). */
+export interface EffectsSettings {
+  noise: number;
+  vhs: number;
+  glitch: number;
+}
+
 export interface MediaItem {
   id: string;
   kind: "image" | "video";
@@ -167,6 +174,7 @@ export interface DesignDocument {
   shot: ShotSettings;
   headline: HeadlineSettings;
   watermark: WatermarkSettings;
+  effects: EffectsSettings;
   media: MediaItem[];
   layers: Layer[];
   timeline: Timeline;

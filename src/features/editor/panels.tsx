@@ -106,6 +106,7 @@ function MagicSection() {
 
 export function BackgroundPanel() {
   const bg = useEditor((s) => s.doc.background);
+  const effects = useEditor((s) => s.doc.effects);
   return (
     <>
       <MagicSection />
@@ -156,6 +157,11 @@ export function BackgroundPanel() {
             />
           </label>
         </div>
+      </Section>
+      <Section title="Effects">
+        <Slider label="Film grain" value={Math.round(effects.noise * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.effects.noise = v / 100), "fx-noise")} />
+        <Slider label="VHS" value={Math.round(effects.vhs * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.effects.vhs = v / 100), "fx-vhs")} />
+        <Slider label="Glitch" value={Math.round(effects.glitch * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.effects.glitch = v / 100), "fx-glitch")} />
       </Section>
     </>
   );

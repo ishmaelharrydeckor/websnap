@@ -27,6 +27,7 @@ export function createDefaultDocument(): DesignDocument {
       color: "#ffffff",
     },
     watermark: { show: false, text: "yourproduct.com" },
+    effects: { noise: 0, vhs: 0, glitch: 0 },
     media: [],
     layers: [],
     timeline: { duration: 10, clips: [], segments: [], sound: { videoVolume: 1, music: null } },

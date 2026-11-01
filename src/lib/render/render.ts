@@ -5,6 +5,7 @@ import type { Background, DesignDocument, Layer } from "../document/types";
 import { averageColor, makeCanvas, mix, withAlpha } from "./color";
 import { frameStateAt, layerAlpha, documentAt } from "../timeline/animation";
 import { canAnchor, LAYER_SPACE } from "./geometry";
+import { applyEffects, hasEffects } from "./effects";
 import { drawCanvasLayer, drawShotLayer, type RenderableImage } from "./layers";
 import { computeLayout, coverRect, FRAME_BAR_HEIGHT, slotOfLayer, type Rect, type Slot } from "./layout";
 import { drawProjected, fitScale, isTilted, projectedQuad, renderToOffscreen, screenTransform } from "./perspective";
@@ -394,4 +395,11 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
   ctx.restore(); // end of the camera
 
   if (doc.watermark.show && doc.watermark.text.trim()) drawWatermark(ctx, doc);
+
+  // Looks that act on the finished picture (grain, VHS, glitch) go last, so they cover everything including text.
+  if (hasEffects(doc.effects)) {
+    const pixels = ctx.getImageData(0, 0, cw, ch);
+    applyEffects(pixels.data, cw, ch, doc.effects, t);
+    ctx.putImageData(pixels, 0, 0);
+  }
 }

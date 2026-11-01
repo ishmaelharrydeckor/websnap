@@ -141,6 +141,11 @@ changes pitch (no time-stretching); the preview of music is approximate when scr
 browser exercised. Still open: MP4 (H.264/AAC) needs a try in real Chrome/Edge/Safari.
 
 ### Phase 5: Sharing and extras
+Done so far: **effects** (film grain, VHS, glitch): sliders in the Background tab, applied by the shared renderer to
+preview, images and every video frame, animated over time and repeatable frame by frame. Cost at 1600x900 is
+about 15-40 ms per frame, so the preview may drop below 30 fps with all three at maximum; export is unaffected.
+
+Still to do:
 Upload + public links (self-hostable), screenshot-a-URL (headless browser service),
 effects (noise/VHS/glitch), 3D scenes, desktop/extension wrappers.
 

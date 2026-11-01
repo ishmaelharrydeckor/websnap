@@ -42,3 +42,11 @@ describe("normalizeDocument canvas sanitising", () => {
     expect(bad(1e9, 100).width).toBe(8192);
   });
 });
+
+describe("normalizeDocument effects", () => {
+  it("gives old designs no effects and clamps bad values", () => {
+    expect(normalizeDocument({}).effects).toEqual({ noise: 0, vhs: 0, glitch: 0 });
+    const bad = normalizeDocument({ effects: { noise: 5, vhs: -2, glitch: NaN } }).effects;
+    expect(bad).toEqual({ noise: 1, vhs: 0, glitch: 0 });
+  });
+});
