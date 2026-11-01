@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import { createDefaultDocument } from "../document/defaults";
+import { EMPTY_BRAND, type Brand } from "../brand/brand";
 import type { DesignDocument, Layer, MediaItem } from "../document/types";
 import type { Tool } from "../render/geometry";
 import type { RenderableImage } from "../render/render";
@@ -25,6 +26,8 @@ export interface UiState {
 export interface EditorState {
   doc: DesignDocument;
   ui: UiState;
+  /** The saved brand kit. Lives outside the document, so it is not part of undo history. */
+  brand: Brand;
   past: DesignDocument[];
   future: DesignDocument[];
   images: Record<string, LoadedImage>;
@@ -45,6 +48,8 @@ export interface EditorState {
   removeLayer: (id: string) => void;
   /** Moves a layer one step toward the front (+1) or back (-1) of the layer list. */
   moveLayer: (id: string, direction: 1 | -1) => void;
+  /** Replaces the brand kit; a new logo image is registered so it can be drawn. */
+  setBrand: (brand: Brand, logo?: LoadedImage) => void;
   /** Registers an image and adds it as a layer on the canvas. */
   addImageLayer: (image: LoadedImage) => void;
   undo: () => void;
@@ -60,6 +65,7 @@ export function createEditorStore() {
   return createStore<EditorState>()((set, get) => ({
     doc: createDefaultDocument(),
     ui: { tool: "select", selectedId: null },
+    brand: EMPTY_BRAND,
     past: [],
     future: [],
     images: {},
@@ -133,6 +139,8 @@ export function createEditorStore() {
         [d.layers[i], d.layers[j]] = [d.layers[j], d.layers[i]];
       });
     },
+
+    setBrand: (brand, logo) => set((s) => ({ brand, images: logo ? { ...s.images, [logo.id]: logo } : s.images })),
 
     addImageLayer: (image) => {
       set((s) => ({ images: { ...s.images, [image.id]: image } }));

@@ -155,7 +155,13 @@ function withAlpha(hex: string, alpha: number): string {
 }
 
 /** Draws a layer that lives on the canvas (arrow, shapes, steps, drawing, text, image). `rect` is the whole canvas. */
-export function drawCanvasLayer(ctx: CanvasRenderingContext2D, layer: Layer, rect: Rect, images: Record<string, RenderableImage> = {}) {
+export function drawCanvasLayer(
+  ctx: CanvasRenderingContext2D,
+  layer: Layer,
+  rect: Rect,
+  images: Record<string, RenderableImage> = {},
+  font = "system-ui, sans-serif",
+) {
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -241,7 +247,7 @@ export function drawCanvasLayer(ctx: CanvasRenderingContext2D, layer: Layer, rec
     }
     case "text": {
       ctx.fillStyle = layer.color;
-      ctx.font = `700 ${layer.size}px system-ui, sans-serif`;
+      ctx.font = `700 ${layer.size}px ${font}`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       ctx.shadowColor = "rgba(0,0,0,0.25)";

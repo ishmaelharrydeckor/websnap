@@ -1,3 +1,4 @@
+import { fontStack } from "../assets/fonts";
 import { getWallpaper } from "../assets/wallpapers";
 import type { Background, DesignDocument, Layer } from "../document/types";
 import { LAYER_SPACE } from "./geometry";
@@ -91,11 +92,11 @@ function drawHeadline(ctx: CanvasRenderingContext2D, doc: DesignDocument, band: 
   ctx.textBaseline = "middle";
   ctx.textAlign = align === "center" ? "center" : "left";
   let fontSize = size;
-  ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
+  ctx.font = `700 ${fontSize}px ${fontStack(doc.font)}`;
   const measured = ctx.measureText(text).width;
   if (measured > band.width) {
     fontSize = Math.max(12, Math.floor((size * band.width) / measured));
-    ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
+    ctx.font = `700 ${fontSize}px ${fontStack(doc.font)}`;
   }
   const x = align === "center" ? band.x + band.width / 2 : band.x;
   ctx.fillText(text, x, band.y + band.height / 2);
@@ -106,7 +107,7 @@ function drawWatermark(ctx: CanvasRenderingContext2D, doc: DesignDocument) {
   const { width: cw, height: ch } = doc.canvas;
   const margin = Math.min(cw, ch) * 0.035;
   ctx.save();
-  ctx.font = "600 22px system-ui, sans-serif";
+  ctx.font = `600 22px ${fontStack(doc.font)}`;
   ctx.fillStyle = "rgba(255,255,255,0.8)";
   ctx.shadowColor = "rgba(0,0,0,0.35)";
   ctx.shadowBlur = 6;
@@ -172,7 +173,7 @@ export function renderDocument(ctx: CanvasRenderingContext2D, doc: DesignDocumen
   // Shapes, text and images sit on top of everything, anywhere on the canvas.
   const canvasRect: Rect = { x: 0, y: 0, width: cw, height: ch };
   for (const l of layers) {
-    if (l.visible && LAYER_SPACE[l.type] === "canvas") drawCanvasLayer(ctx, l, canvasRect, input.images);
+    if (l.visible && LAYER_SPACE[l.type] === "canvas") drawCanvasLayer(ctx, l, canvasRect, input.images, fontStack(doc.font));
   }
 
   if (doc.watermark.show && doc.watermark.text.trim()) drawWatermark(ctx, doc);

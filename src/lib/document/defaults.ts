@@ -4,6 +4,7 @@ export function createDefaultDocument(): DesignDocument {
   return {
     version: 1,
     canvas: { sizeId: "x-post", width: 1600, height: 900 },
+    font: "sans",
     background: {
       kind: "gradient",
       angle: 135,

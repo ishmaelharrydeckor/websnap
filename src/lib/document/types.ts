@@ -1,3 +1,5 @@
+export type FontId = "sans" | "serif" | "mono" | "rounded";
+
 export type FrameStyle = "none" | "macos" | "browser" | "safari";
 
 export type Background =
@@ -85,6 +87,8 @@ export type LayerType = Layer["type"];
 export interface DesignDocument {
   version: 1;
   canvas: { sizeId: string; width: number; height: number };
+  /** Font family used for the headline, watermark and text layers. */
+  font: FontId;
   background: Background;
   frame: { style: FrameStyle; dark: boolean; url: string };
   shot: ShotSettings;

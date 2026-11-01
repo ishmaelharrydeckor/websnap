@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { collectAssetIds } from "@/lib/document/assets";
 import { blobToLoadedImage } from "@/features/capture/import";
-import { loadCurrentDesign, saveCurrentDesign } from "@/lib/storage/designs";
+import { loadBrand, loadCurrentDesign, saveBrand, saveCurrentDesign } from "@/lib/storage/designs";
 import { editorStore } from "./store";
 
 const SAVE_DELAY_MS = 800;
@@ -53,6 +53,39 @@ export function usePersistence() {
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      unsubscribe?.();
+    };
+  }, []);
+
+  // The brand kit is saved separately from the design.
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    async function restore() {
+      try {
+        const saved = await loadBrand();
+        if (!saved || cancelled) return;
+        const logo = saved.logo && saved.brand.logoId ? await blobToLoadedImage(saved.logo, saved.brand.logoId) : undefined;
+        if (!cancelled) editorStore.getState().setBrand(saved.brand, logo);
+      } catch {
+        // Best-effort, as with the design.
+      }
+    }
+
+    void restore().then(() => {
+      if (cancelled) return;
+      let last = editorStore.getState().brand;
+      unsubscribe = editorStore.subscribe((state) => {
+        if (state.brand === last) return;
+        last = state.brand;
+        const logo = state.brand.logoId ? state.images[state.brand.logoId]?.blob : undefined;
+        saveBrand(state.brand, logo).catch(() => {});
+      });
+    });
+
+    return () => {
+      cancelled = true;
       unsubscribe?.();
     };
   }, []);

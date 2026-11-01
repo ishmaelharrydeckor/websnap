@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { GRADIENT_PRESETS, SOLID_PRESETS } from "@/lib/assets/backgrounds";
+import { FONTS } from "@/lib/assets/fonts";
 import { SIZE_PRESETS } from "@/lib/assets/sizes";
 import { getWallpaper, WALLPAPERS } from "@/lib/assets/wallpapers";
 import type { FrameStyle } from "@/lib/document/types";
@@ -178,8 +179,12 @@ export function StylePanel() {
 export function TextPanel() {
   const headline = useEditor((s) => s.doc.headline);
   const watermark = useEditor((s) => s.doc.watermark);
+  const font = useEditor((s) => s.doc.font);
   return (
     <>
+      <Section title="Font">
+        <Segmented label="Font" value={font} options={FONTS.map((f) => ({ id: f.id, label: f.label }))} onChange={(v) => update((d) => void (d.font = v))} />
+      </Section>
       <Section title="Headline">
         <Toggle label="Show headline" checked={headline.show} onChange={(v) => update((d) => void (d.headline.show = v))} />
         <TextField label="Text" value={headline.text} onChange={(v) => update((d) => void (d.headline.text = v), "headline-text")} />

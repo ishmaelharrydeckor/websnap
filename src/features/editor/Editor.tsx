@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentType } from "re
 import { blobToLoadedImage, captureScreenFrame, firstImageFrom } from "@/features/capture/import";
 import { copyPng, downloadBlob, EXPORT_FORMATS, exportBlob, exportFileName, type ExportFormat } from "@/lib/export/exporter";
 import { TOOLS, translateLayer } from "@/lib/render/geometry";
+import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
 import { InsertPanel, LayersPanel } from "./layerPanels";
 import { BackgroundPanel, CanvasPanel, StylePanel, TextPanel } from "./panels";
 import type { PanelProps } from "./panelTypes";
@@ -12,12 +13,14 @@ import { editorStore, primaryImage, renderInputFor, useEditor } from "./store";
 import { usePersistence } from "./usePersistence";
 
 const TABS: { id: string; label: string; panel: ComponentType<PanelProps> }[] = [
+  { id: "templates", label: "Templates", panel: TemplatesPanel },
   { id: "canvas", label: "Canvas", panel: CanvasPanel },
-  { id: "background", label: "Backdrop", panel: BackgroundPanel },
+  { id: "background", label: "Background", panel: BackgroundPanel },
   { id: "style", label: "Style", panel: StylePanel },
   { id: "text", label: "Text", panel: TextPanel },
   { id: "insert", label: "Insert", panel: InsertPanel },
   { id: "layers", label: "Layers", panel: LayersPanel },
+  { id: "brand", label: "Brand", panel: BrandPanel },
 ];
 
 const btn =
@@ -25,7 +28,7 @@ const btn =
 
 export function Editor() {
   usePersistence();
-  const [tab, setTab] = useState("canvas");
+  const [tab, setTab] = useState("templates");
   const [format, setFormat] = useState<ExportFormat>("png");
   const [scale, setScale] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
@@ -226,14 +229,14 @@ export function Editor() {
 
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-[22rem] shrink-0 flex-col border-r border-white/10">
-          <nav className="flex border-b border-white/10 text-xs" aria-label="Editor panels">
+          <nav className="grid grid-cols-4 border-b border-white/10 text-xs" aria-label="Editor panels">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 aria-pressed={tab === t.id}
                 onClick={() => setTab(t.id)}
-                className={`min-w-0 flex-1 truncate px-1 py-3 transition ${tab === t.id ? "border-b-2 border-orange-500 text-white" : "text-neutral-400 hover:text-white"}`}
+                className={`min-w-0 truncate px-1 py-2.5 transition ${tab === t.id ? "border-b-2 border-orange-500 text-white" : "text-neutral-400 hover:text-white"}`}
               >
                 {t.label}
               </button>

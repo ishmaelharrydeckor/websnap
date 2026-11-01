@@ -1,3 +1,4 @@
+import type { Brand } from "../brand/brand";
 import { collectAssetIds } from "../document/assets";
 import { normalizeDocument } from "../document/migrate";
 import type { DesignDocument } from "../document/types";
@@ -26,4 +27,18 @@ export async function loadCurrentDesign(): Promise<SavedDesign | undefined> {
     if (blob) blobs[id] = blob;
   }
   return { doc, blobs };
+}
+
+const BRAND_KEY = "brand";
+
+export async function saveBrand(brand: Brand, logo?: Blob): Promise<void> {
+  if (brand.logoId && logo) await putRecord("blobs", brand.logoId, logo);
+  await putRecord("designs", BRAND_KEY, brand);
+}
+
+export async function loadBrand(): Promise<{ brand: Brand; logo?: Blob } | undefined> {
+  const brand = await getRecord<Brand>("designs", BRAND_KEY);
+  if (!brand) return undefined;
+  const logo = brand.logoId ? await getRecord<Blob>("blobs", brand.logoId) : undefined;
+  return { brand, logo };
 }
