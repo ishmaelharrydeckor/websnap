@@ -113,13 +113,15 @@ they keep their place on the screenshot across export sizes, layouts and tilts; 
 Remaining limits: text and numbered steps under tilt follow the screen's local rotation and scale but
 are not foreshortened; rounded rectangle corners become straight when tilted.
 
-### Phase 4: Video and animation (done)
+### Phase 4: Video and animation (done, except the MP4 check in a real browser)
 - Video as media: upload (mp4/webm/mov) or record the screen (with sound); playback synced to a clock, scrub,
   looping; recordings made seekable; videos persist locally.
 - Timeline editing: split at the playhead, delete segments, speed 0.5x-16x, drag-to-trim; each edit is one
   undo step and the timeline length follows.
 - Animations: zoom (with gliding between close zooms), parallax drift, tilt clips, and layers that appear on cue;
   clips are dragged and resized on a track. Mouse editing pauses while a zoom/drift is in view.
+- Every screen's video follows the timeline's cuts and speed (shorter videos wrap around). The timeline shows a
+  filmstrip and an audio waveform for the cut video.
 - Sound: the first screen's video sound follows its cuts and speed (parts faster than 2x are left silent),
   with a volume control; an optional music track with volume and a fade-out, trimmed to the timeline.
   The preview plays both.
@@ -134,9 +136,9 @@ Chromium has no H.264 or AAC encoder, so the live MP4 path (WebCodecs H.264 + AA
 the MP4 muxer was verified with real ffmpeg H.264 and AAC streams, and MP4 is disabled in the dialog when the
 browser can't encode H.264. Needs a try in real Chrome/Edge/Safari.
 
-Known limits: only the first screen's video is on the timeline's cuts and sound (videos in other screens loop
-silently); sped-up audio changes pitch (no time-stretching); no waveform or filmstrip thumbnails; the preview
-of music is approximate when scrubbing; Chromium is the only browser exercised.
+Known limits: only the first screen's video is heard (others follow the cuts but are silent); sped-up audio
+changes pitch (no time-stretching); the preview of music is approximate when scrubbing; Chromium is the only
+browser exercised. Still open: MP4 (H.264/AAC) needs a try in real Chrome/Edge/Safari.
 
 ### Phase 5: Sharing and extras
 Upload + public links (self-hostable), screenshot-a-URL (headless browser service),

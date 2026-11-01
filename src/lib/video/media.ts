@@ -68,7 +68,13 @@ export async function loadVideo(blob: Blob, id: string = crypto.randomUUID(), kn
   // Giving the element its pixel size lets it stand in anywhere we expect an image with width and height.
   video.width = video.videoWidth;
   video.height = video.videoHeight;
-  return { id, kind: "video", width: video.videoWidth, height: video.videoHeight, source: video, blob, duration, video };
+  const dispose = () => {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(url);
+  };
+  return { id, kind: "video", width: video.videoWidth, height: video.videoHeight, source: video, blob, duration, video, dispose };
 }
 
 export const AUDIO_TYPES = ["audio/mpeg", "audio/mp3", "audio/mp4", "audio/aac", "audio/wav", "audio/x-wav", "audio/webm", "audio/ogg", "audio/opus", "audio/flac", "audio/x-m4a"];
@@ -104,5 +110,11 @@ export async function loadAudio(blob: Blob, id: string = crypto.randomUUID()): P
     URL.revokeObjectURL(url);
     throw new Error("This audio file has no length, so it can't be used.");
   }
-  return { id, blob, duration: element.duration, element };
+  const dispose = () => {
+    element.pause();
+    element.removeAttribute("src");
+    element.load();
+    URL.revokeObjectURL(url);
+  };
+  return { id, blob, duration: element.duration, element, dispose };
 }

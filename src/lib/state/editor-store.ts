@@ -25,6 +25,8 @@ export interface LoadedImage {
   duration?: number;
   /** The playing element, for videos (the same object as `source`). */
   video?: HTMLVideoElement;
+  /** Frees what a video holds (its object URL and decoder). */
+  dispose?: () => void;
 }
 
 /** Editor UI state that is not part of the document and not undoable. */
@@ -52,6 +54,8 @@ export interface LoadedAudio {
   duration: number;
   /** The element used to preview it. */
   element?: HTMLAudioElement;
+  /** Frees the object URL and decoder. */
+  dispose?: () => void;
 }
 
 export interface EditorState {
@@ -298,6 +302,10 @@ export function createEditorStore() {
 
     load: (doc, images, audios = []) => {
       lastKey = undefined;
+      // Whatever the old design held that the new one doesn't reuse is released, so videos don't pile up.
+      const { images: oldImages, audios: oldAudios } = get();
+      const keep = new Set([...images.map((i) => i.id), ...audios.map((a) => a.id)]);
+      for (const m of [...Object.values(oldImages), ...Object.values(oldAudios)]) if (!keep.has(m.id)) m.dispose?.();
       set((s) => ({
         doc,
         ui: { ...s.ui, selectedId: null },

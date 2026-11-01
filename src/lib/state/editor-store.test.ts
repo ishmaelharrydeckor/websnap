@@ -341,3 +341,16 @@ describe("music", () => {
     expect(collectAssetIds(s.getState().doc)).toContain("m");
   });
 });
+
+describe("releasing media on load", () => {
+  it("disposes media the new design doesn't reuse, and only that", () => {
+    const disposed: string[] = [];
+    const withDispose = (id: string): LoadedImage => ({ ...fakeImage(id), dispose: () => disposed.push(id) });
+    const store = createEditorStore();
+    const s = store.getState();
+    s.load(s.doc, [withDispose("a"), withDispose("b")]);
+    const next = store.getState();
+    next.load(next.doc, [withDispose("b")]);
+    expect(disposed).toEqual(["a"]);
+  });
+});
