@@ -71,12 +71,16 @@ Document sketch:
 
 ## Phases
 
-### Phase 0: Foundation (current)
+### Phase 0: Foundation (done)
 Scaffold Next.js/TS/Tailwind, MIT license, README, CI (lint, typecheck, test, build),
 document schema + empty editor shell.
 
-### Phase 1: Core editor (image)
+### Phase 1: Core editor (image) (done)
 Renderer + document model first, then UI.
+Shipped: upload/paste/drop/screen capture, 8 size presets, gradients/solid/8 code-drawn
+wallpapers, frames (none/macOS/browser/Safari, light/dark), padding/radius/shadow,
+headline + watermark, PNG/JPG/WebP export at 1x/2x, copy to clipboard, undo/redo,
+IndexedDB autosave. Not yet: Safari-specific details beyond the address pill, custom canvas sizes.
 - Import: upload/paste/drop
 - Canvas size presets; background (solid, gradient, a first set of wallpapers)
 - Frames: none, macOS, browser, Safari; padding/radius/shadow

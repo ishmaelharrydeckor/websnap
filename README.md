@@ -3,7 +3,7 @@
 Open-source screenshot and screen recording beautifier that runs in your browser.
 Turn a plain screenshot into a polished post or device mockup. No account, no upload.
 
-> Status: early development (Phase 0). See [PLAN.md](./PLAN.md) for the roadmap.
+> Status: early development (Phase 1 done: image editor). See [PLAN.md](./PLAN.md) for the roadmap.
 
 ## Develop
 

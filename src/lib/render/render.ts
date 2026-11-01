@@ -1,13 +1,27 @@
+import { getWallpaper } from "../assets/wallpapers";
 import type { Background, DesignDocument } from "../document/types";
-import { computeFramedRect, FRAME_BAR_HEIGHT, type Rect } from "./layout";
+import { computeLayout, FRAME_BAR_HEIGHT, type Rect } from "./layout";
+
+export type RenderableImage = CanvasImageSource & { width: number; height: number };
 
 export interface RenderInput {
   /** The user's screenshot. When absent, a placeholder is drawn. */
-  image?: CanvasImageSource & { width: number; height: number };
+  image?: RenderableImage;
 }
 
+const PLACEHOLDER_SIZE = { width: 1600, height: 1000 };
+
 function fillBackground(ctx: CanvasRenderingContext2D, bg: Background, w: number, h: number) {
-  if (bg.kind === "solid") {
+  if (bg.kind === "wallpaper") {
+    const wp = getWallpaper(bg.id);
+    if (wp) {
+      ctx.save();
+      wp.draw(ctx, w, h);
+      ctx.restore();
+      return;
+    }
+    ctx.fillStyle = "#222222";
+  } else if (bg.kind === "solid") {
     ctx.fillStyle = bg.color;
   } else {
     const rad = (bg.angle * Math.PI) / 180;
@@ -24,7 +38,7 @@ function fillBackground(ctx: CanvasRenderingContext2D, bg: Background, w: number
 }
 
 function roundedRectPath(ctx: CanvasRenderingContext2D, r: Rect, radius: number) {
-  const rr = Math.min(radius, r.width / 2, r.height / 2);
+  const rr = Math.max(0, Math.min(radius, r.width / 2, r.height / 2));
   ctx.beginPath();
   ctx.moveTo(r.x + rr, r.y);
   ctx.arcTo(r.x + r.width, r.y, r.x + r.width, r.y + r.height, rr);
@@ -34,20 +48,85 @@ function roundedRectPath(ctx: CanvasRenderingContext2D, r: Rect, radius: number)
   ctx.closePath();
 }
 
+function drawTitleBar(ctx: CanvasRenderingContext2D, doc: DesignDocument, rect: Rect, bar: number) {
+  const dark = doc.frame.dark;
+  ctx.fillStyle = dark ? "#2b2b2f" : "#f3f3f5";
+  ctx.fillRect(rect.x, rect.y, rect.width, bar);
+  ctx.fillStyle = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
+  ctx.fillRect(rect.x, rect.y + bar - 1, rect.width, 1);
+
+  ["#ff5f57", "#febc2e", "#28c840"].forEach((c, i) => {
+    ctx.beginPath();
+    ctx.arc(rect.x + 24 + i * 22, rect.y + bar / 2, 6.5, 0, Math.PI * 2);
+    ctx.fillStyle = c;
+    ctx.fill();
+  });
+
+  if (doc.frame.style === "macos") return;
+
+  // Address pill: left-aligned for "browser", centred for "safari".
+  const pillH = bar * 0.56;
+  const pillW = Math.min(rect.width * 0.5, 520);
+  const pillX = doc.frame.style === "safari" ? rect.x + (rect.width - pillW) / 2 : rect.x + 110;
+  const pill: Rect = { x: pillX, y: rect.y + (bar - pillH) / 2, width: Math.min(pillW, rect.width - 130), height: pillH };
+  if (pill.width <= 40) return;
+  roundedRectPath(ctx, pill, pillH / 2);
+  ctx.fillStyle = dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)";
+  ctx.fill();
+  ctx.fillStyle = dark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)";
+  ctx.font = `500 ${Math.round(pillH * 0.5)}px system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(doc.frame.url, pill.x + pill.width / 2, pill.y + pill.height / 2 + 1);
+}
+
+function drawHeadline(ctx: CanvasRenderingContext2D, doc: DesignDocument, band: Rect) {
+  const { text, size, color, align } = doc.headline;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = align === "center" ? "center" : "left";
+  let fontSize = size;
+  ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
+  const measured = ctx.measureText(text).width;
+  if (measured > band.width) {
+    fontSize = Math.max(12, Math.floor((size * band.width) / measured));
+    ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
+  }
+  const x = align === "center" ? band.x + band.width / 2 : band.x;
+  ctx.fillText(text, x, band.y + band.height / 2);
+  ctx.restore();
+}
+
+function drawWatermark(ctx: CanvasRenderingContext2D, doc: DesignDocument) {
+  const { width: cw, height: ch } = doc.canvas;
+  const margin = Math.min(cw, ch) * 0.035;
+  ctx.save();
+  ctx.font = "600 22px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = 6;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(doc.watermark.text, cw - margin, ch - margin);
+  ctx.restore();
+}
+
 /** Draws a document onto a canvas context sized to doc.canvas. Used for preview and export. */
-export function renderDocument(
-  ctx: CanvasRenderingContext2D,
-  doc: DesignDocument,
-  input: RenderInput = {},
-) {
+export function renderDocument(ctx: CanvasRenderingContext2D, doc: DesignDocument, input: RenderInput = {}) {
   const { width: cw, height: ch } = doc.canvas;
   ctx.clearRect(0, 0, cw, ch);
   fillBackground(ctx, doc.background, cw, ch);
 
-  const imgW = input.image?.width ?? 1600;
-  const imgH = input.image?.height ?? 1000;
-  const rect = computeFramedRect(doc, imgW, imgH);
+  const img = input.image;
+  const { frame: rect, headline } = computeLayout(
+    doc,
+    img?.width ?? PLACEHOLDER_SIZE.width,
+    img?.height ?? PLACEHOLDER_SIZE.height,
+  );
   const bar = FRAME_BAR_HEIGHT[doc.frame.style];
+
+  if (headline) drawHeadline(ctx, doc, headline);
 
   // Shadow + window body
   ctx.save();
@@ -55,7 +134,7 @@ export function renderDocument(
   ctx.shadowBlur = (doc.shot.shadow / 100) * 80;
   ctx.shadowOffsetY = (doc.shot.shadow / 100) * 28;
   roundedRectPath(ctx, rect, doc.shot.radius);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = doc.frame.dark ? "#1c1c1f" : "#ffffff";
   ctx.fill();
   ctx.restore();
 
@@ -63,23 +142,13 @@ export function renderDocument(
   roundedRectPath(ctx, rect, doc.shot.radius);
   ctx.clip();
 
-  if (bar > 0) {
-    ctx.fillStyle = "#f3f3f5";
-    ctx.fillRect(rect.x, rect.y, rect.width, bar);
-    const dots = ["#ff5f57", "#febc2e", "#28c840"];
-    dots.forEach((c, i) => {
-      ctx.beginPath();
-      ctx.arc(rect.x + 22 + i * 20, rect.y + bar / 2, 6, 0, Math.PI * 2);
-      ctx.fillStyle = c;
-      ctx.fill();
-    });
-  }
+  if (bar > 0) drawTitleBar(ctx, doc, rect, bar);
 
   const content: Rect = { x: rect.x, y: rect.y + bar, width: rect.width, height: rect.height - bar };
-  if (input.image) {
-    ctx.drawImage(input.image, content.x, content.y, content.width, content.height);
+  if (img) {
+    ctx.drawImage(img, content.x, content.y, content.width, content.height);
   } else {
-    ctx.fillStyle = "#f6f6f8";
+    ctx.fillStyle = doc.frame.dark ? "#232326" : "#f6f6f8";
     ctx.fillRect(content.x, content.y, content.width, content.height);
     ctx.fillStyle = "#8a8a93";
     ctx.font = "500 28px system-ui, sans-serif";
@@ -88,4 +157,6 @@ export function renderDocument(
     ctx.fillText("Drop, paste, or import a screenshot", content.x + content.width / 2, content.y + content.height / 2);
   }
   ctx.restore();
+
+  if (doc.watermark.show && doc.watermark.text.trim()) drawWatermark(ctx, doc);
 }

@@ -13,8 +13,17 @@ export function createDefaultDocument(): DesignDocument {
         { offset: 1, color: "#7b2ff7" },
       ],
     },
-    frame: { style: "browser" },
+    frame: { style: "browser", dark: false, url: "yourproduct.com" },
     shot: { padding: 0.09, radius: 14, shadow: 55 },
+    headline: {
+      show: false,
+      text: "Ship pages people remember",
+      position: "top",
+      align: "center",
+      size: 56,
+      color: "#ffffff",
+    },
+    watermark: { show: false, text: "yourproduct.com" },
     media: [],
     timeline: { duration: 10, clips: [] },
   };
