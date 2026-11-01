@@ -81,7 +81,7 @@ describe("layers", () => {
     s.getState().setTool("rect");
     s.getState().addLayer(rect("a"));
     expect(s.getState().doc.layers).toHaveLength(1);
-    expect(s.getState().ui).toEqual({ tool: "select", selectedId: "a" });
+    expect(s.getState().ui).toMatchObject({ tool: "select", selectedId: "a" });
   });
 
   it("treats a whole drag as one undo step, even with pauses", () => {
@@ -121,5 +121,64 @@ describe("layers", () => {
     s.getState().addImageLayer(fakeImage("logo"));
     expect(s.getState().images.logo).toBeDefined();
     expect(s.getState().doc.layers[0]).toMatchObject({ type: "image", assetId: "logo" });
+  });
+});
+
+describe("video media and playback", () => {
+  const fakeVideo = (id: string, duration: number): LoadedImage => ({
+    id,
+    kind: "video",
+    duration,
+    width: 640,
+    height: 360,
+    source: { width: 640, height: 360 } as unknown as LoadedImage["source"],
+    blob: new Blob(["v"], { type: "video/webm" }),
+  });
+
+  it("a video on the first screen sets the segments, the timeline length and opens the timeline", () => {
+    const s = createEditorStore();
+    s.getState().setImage(fakeVideo("v", 12.5));
+    const d = s.getState().doc;
+    expect(d.media[0]).toMatchObject({ kind: "video", duration: 12.5 });
+    expect(d.timeline.segments).toEqual([{ start: 0, end: 12.5, speed: 1 }]);
+    expect(d.timeline.duration).toBe(12.5);
+    expect(s.getState().ui.timelineOpen).toBe(true);
+    expect(s.getState().playback).toEqual({ time: 0, playing: false });
+  });
+
+  it("an image on the first screen clears the segments but keeps the timeline length", () => {
+    const s = createEditorStore();
+    s.getState().setImage(fakeVideo("v", 8));
+    s.getState().setImage(fakeImage("i"), 0);
+    expect(s.getState().doc.timeline.segments).toEqual([]);
+    expect(s.getState().doc.timeline.duration).toBe(8);
+  });
+
+  it("a video on a later screen does not change the segments or timeline", () => {
+    const s = createEditorStore();
+    s.getState().update((d) => void (d.layout.kind = "duo"));
+    s.getState().setImage(fakeImage("i"));
+    s.getState().setImage(fakeVideo("v", 30));
+    expect(s.getState().doc.media[1].kind).toBe("video");
+    expect(s.getState().doc.timeline.segments).toEqual([]);
+    expect(s.getState().doc.timeline.duration).toBe(10);
+  });
+
+  it("keeps the playhead inside the timeline", () => {
+    const s = createEditorStore();
+    s.getState().setTime(4);
+    expect(s.getState().playback.time).toBe(4);
+    s.getState().setTime(99);
+    expect(s.getState().playback.time).toBe(10);
+    s.getState().setTime(-3);
+    expect(s.getState().playback.time).toBe(0);
+  });
+
+  it("undoing the import takes the video back off the first screen", () => {
+    const s = createEditorStore();
+    s.getState().setImage(fakeVideo("v", 6));
+    s.getState().undo();
+    expect(s.getState().doc.media).toHaveLength(0);
+    expect(s.getState().doc.timeline.segments).toEqual([]);
   });
 });

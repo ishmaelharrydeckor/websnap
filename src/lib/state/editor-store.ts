@@ -4,6 +4,7 @@ import { EMPTY_BRAND, type Brand } from "../brand/brand";
 import type { DesignDocument, Layer, MediaItem } from "../document/types";
 import type { Tool } from "../render/geometry";
 import { SLOT_COUNT } from "../render/layout";
+import { wholeVideo } from "../timeline/segments";
 import type { RenderableImage } from "../render/render";
 
 const HISTORY_LIMIT = 100;
@@ -16,17 +17,31 @@ export interface LoadedImage {
   height: number;
   source: RenderableImage;
   blob: Blob;
+  /** "image" when omitted. */
+  kind?: "image" | "video";
+  /** Video length in seconds. */
+  duration?: number;
+  /** The playing element, for videos (the same object as `source`). */
+  video?: HTMLVideoElement;
 }
 
 /** Editor UI state that is not part of the document and not undoable. */
 export interface UiState {
   tool: Tool;
   selectedId: string | null;
+  timelineOpen: boolean;
+}
+
+/** Where the preview is on the timeline. Not part of the document or its undo history. */
+export interface Playback {
+  time: number;
+  playing: boolean;
 }
 
 export interface EditorState {
   doc: DesignDocument;
   ui: UiState;
+  playback: Playback;
   /** The saved brand kit. Lives outside the document, so it is not part of undo history. */
   brand: Brand;
   past: DesignDocument[];
@@ -46,6 +61,10 @@ export interface EditorState {
    */
   setImage: (image: LoadedImage, slot?: number) => void;
   setTool: (tool: Tool) => void;
+  /** Moves the playhead (clamped to the timeline). */
+  setTime: (time: number) => void;
+  setPlaying: (playing: boolean) => void;
+  setTimelineOpen: (open: boolean) => void;
   select: (id: string | null) => void;
   /** Adds a layer on top, selects it and returns to the select tool. */
   addLayer: (layer: Layer) => void;
@@ -69,7 +88,8 @@ export function createEditorStore() {
 
   return createStore<EditorState>()((set, get) => ({
     doc: createDefaultDocument(),
-    ui: { tool: "select", selectedId: null },
+    ui: { tool: "select", selectedId: null, timelineOpen: false },
+    playback: { time: 0, playing: false },
     brand: EMPTY_BRAND,
     past: [],
     future: [],
@@ -94,20 +114,36 @@ export function createEditorStore() {
     },
 
     setImage: (image, slot) => {
+      const isVideo = image.kind === "video";
       const item: MediaItem = {
         id: image.id,
-        kind: "image",
+        kind: isVideo ? "video" : "image",
         assetId: image.id,
         width: image.width,
         height: image.height,
+        ...(isVideo ? { duration: image.duration } : {}),
       };
       lastKey = undefined;
       set((s) => ({ images: { ...s.images, [image.id]: image } }));
       get().update((d) => {
         const wanted = slot ?? (d.media.length < SLOT_COUNT[d.layout.kind] ? d.media.length : 0);
-        d.media[Math.max(0, Math.min(wanted, d.media.length))] = item;
+        const target = Math.max(0, Math.min(wanted, d.media.length));
+        d.media[target] = item;
+        if (target === 0) {
+          // The first screen's video drives the timeline; an image leaves the timeline length as it was.
+          d.timeline.segments = isVideo ? wholeVideo(image.duration ?? 0) : [];
+          if (isVideo) d.timeline.duration = image.duration ?? d.timeline.duration;
+        }
       });
+      set((s) => ({ playback: { time: 0, playing: false }, ui: { ...s.ui, timelineOpen: s.ui.timelineOpen || isVideo } }));
     },
+
+    setTime: (time) =>
+      set((s) => ({ playback: { ...s.playback, time: Math.max(0, Math.min(time, s.doc.timeline.duration)) } })),
+
+    setPlaying: (playing) => set((s) => ({ playback: { ...s.playback, playing } })),
+
+    setTimelineOpen: (open) => set((s) => ({ ui: { ...s.ui, timelineOpen: open } })),
 
     setTool: (tool) => set((s) => ({ ui: { ...s.ui, tool, selectedId: tool === "select" ? s.ui.selectedId : null } })),
 
@@ -175,6 +211,7 @@ export function createEditorStore() {
       set((s) => ({
         doc,
         ui: { ...s.ui, selectedId: null },
+        playback: { time: 0, playing: false },
         past: [],
         future: [],
         images: Object.fromEntries(images.map((i) => [i.id, i])),

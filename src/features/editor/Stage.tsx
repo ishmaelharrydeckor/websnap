@@ -37,6 +37,9 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
   const selectedId = useEditor((s) => s.ui.selectedId);
   const media = useEditor((s) => s.doc.media);
   const loaded = useEditor((s) => s.images);
+  const time = useEditor((s) => s.playback.time);
+  // Bumped when a video finishes seeking or decoding a frame, so a paused preview redraws.
+  const [frame, setFrame] = useState(0);
 
   const boxRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -61,9 +64,25 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
   const sizes = useMemo(() => screens.map((i) => (i ? { width: i.width, height: i.height } : undefined)), [screens]);
 
   useEffect(() => {
+    const videos = screens.flatMap((i) => (i?.video ? [i.video] : []));
+    const bump = () => setFrame((n) => n + 1);
+    for (const v of videos) {
+      v.addEventListener("seeked", bump);
+      v.addEventListener("loadeddata", bump);
+    }
+    return () => {
+      for (const v of videos) {
+        v.removeEventListener("seeked", bump);
+        v.removeEventListener("loadeddata", bump);
+      }
+    };
+  }, [screens]);
+
+  useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (ctx) renderDocument(ctx, doc, { screens: screens.map((i) => i?.source), images, draft });
-  }, [doc, screens, images, draft]);
+    // `time` and `frame` aren't read here, but a new playhead position or decoded video frame means the picture changed.
+  }, [doc, screens, images, draft, time, frame]);
 
   const scale = avail.width > 0 ? Math.min(avail.width / doc.canvas.width, avail.height / doc.canvas.height) : 0;
   const width = doc.canvas.width * scale;

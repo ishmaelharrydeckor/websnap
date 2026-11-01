@@ -1,4 +1,5 @@
 import type { LoadedImage } from "@/lib/state/editor-store";
+import { isVideoBlob, loadVideo, VIDEO_TYPES } from "@/lib/video/media";
 
 const ACCEPTED = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/bmp"];
 
@@ -6,17 +7,26 @@ export function isImageFile(file: File | Blob): boolean {
   return ACCEPTED.includes(file.type);
 }
 
+export function isMediaFile(file: File | Blob): boolean {
+  return isImageFile(file) || VIDEO_TYPES.includes(file.type);
+}
+
+/** Loads an image or a video. `knownDuration` is for recordings, whose files carry no duration. */
+export async function blobToLoadedMedia(blob: Blob, id: string = crypto.randomUUID(), knownDuration?: number): Promise<LoadedImage> {
+  return isVideoBlob(blob) ? loadVideo(blob, id, knownDuration) : blobToLoadedImage(blob, id);
+}
+
 export async function blobToLoadedImage(blob: Blob, id: string = crypto.randomUUID()): Promise<LoadedImage> {
   const bitmap = await createImageBitmap(blob);
   return { id, width: bitmap.width, height: bitmap.height, source: bitmap, blob };
 }
 
-/** First image found in a clipboard or drag-and-drop transfer. */
+/** First image or video found in a clipboard or drag-and-drop transfer. */
 export function firstImageFrom(data: DataTransfer | null): File | undefined {
   if (!data) return undefined;
-  for (const file of Array.from(data.files)) if (isImageFile(file)) return file;
+  for (const file of Array.from(data.files)) if (isMediaFile(file)) return file;
   for (const item of Array.from(data.items)) {
-    if (item.kind === "file" && ACCEPTED.includes(item.type)) {
+    if (item.kind === "file" && (ACCEPTED.includes(item.type) || VIDEO_TYPES.includes(item.type))) {
       const f = item.getAsFile();
       if (f) return f;
     }

@@ -6,6 +6,7 @@ const ctx = () => ({
   setTab: vi.fn(),
   upload: vi.fn(),
   capture: vi.fn(),
+  record: vi.fn(),
   addImage: vi.fn(),
   download: vi.fn(),
   copy: vi.fn(),

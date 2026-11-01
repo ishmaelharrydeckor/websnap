@@ -26,6 +26,7 @@ export interface CommandContext {
   setTab: (id: string) => void;
   upload: () => void;
   capture: () => void;
+  record: () => void;
   addImage: () => void;
   download: () => void;
   copy: () => void;
@@ -55,8 +56,17 @@ const FRAMES: [FrameStyle, string][] = [
 export function buildCommands(ctx: CommandContext): Command[] {
   const store = () => editorStore.getState();
   const cmds: Command[] = [
-    { id: "upload", group: "File", label: "Upload image", keywords: "import open screenshot", run: ctx.upload },
-    { id: "capture", group: "File", label: "Capture screen", keywords: "record screenshot display window tab", run: ctx.capture },
+    { id: "upload", group: "File", label: "Upload image or video", keywords: "import open screenshot recording", run: ctx.upload },
+    { id: "capture", group: "File", label: "Capture screen", keywords: "screenshot display window tab", run: ctx.capture },
+    { id: "record", group: "File", label: "Record screen", keywords: "video recording capture display window tab", run: ctx.record },
+    {
+      id: "play-pause",
+      group: "Timeline",
+      label: "Play / pause",
+      hint: "Space",
+      run: () => store().setPlaying(!store().playback.playing),
+    },
+    { id: "toggle-timeline", group: "Timeline", label: "Show or hide timeline", keywords: "animate video", run: () => store().setTimelineOpen(!store().ui.timelineOpen) },
     { id: "add-image", group: "File", label: "Add image layer", keywords: "logo photo insert", run: ctx.addImage },
     { id: "download", group: "File", label: "Download image", keywords: "export save", run: ctx.download },
     { id: "copy", group: "File", label: "Copy image to clipboard", keywords: "export", run: ctx.copy },

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
-import { blobToLoadedImage, captureScreenFrame, firstImageFrom } from "@/features/capture/import";
+import { blobToLoadedImage, blobToLoadedMedia, captureScreenFrame, firstImageFrom } from "@/features/capture/import";
+import { startScreenRecording, type RecorderHandle } from "@/features/capture/record";
 import { copyPng, downloadBlob, EXPORT_FORMATS, exportBlob, exportFileName, type ExportFormat } from "@/lib/export/exporter";
 import { TOOLS, translateLayer } from "@/lib/render/geometry";
 import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
@@ -12,8 +13,10 @@ import { InsertPanel, LayersPanel } from "./layerPanels";
 import { BackgroundPanel, CanvasPanel, StylePanel, TextPanel } from "./panels";
 import type { PanelProps } from "./panelTypes";
 import { Stage } from "./Stage";
+import { formatTime, Timeline } from "./Timeline";
 import { editorStore, primaryImage, renderInputFor, useEditor } from "./store";
 import { usePersistence } from "./usePersistence";
+import { usePlayback } from "./usePlayback";
 
 const TABS: { id: string; label: string; panel: ComponentType<PanelProps> }[] = [
   { id: "templates", label: "Templates", panel: TemplatesPanel },
@@ -31,12 +34,16 @@ const btn =
 
 export function Editor() {
   usePersistence();
+  usePlayback();
   const [tab, setTab] = useState("templates");
   const [format, setFormat] = useState<ExportFormat>("png");
   const [scale, setScale] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [exportAllOpen, setExportAllOpen] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [elapsed, setElapsed] = useState(0); // seconds into the current recording
+  const recorder = useRef<RecorderHandle | null>(null);
   // Commands are built when the palette opens, so they always use the current handlers and export settings.
   const [commands, setCommands] = useState<Command[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -48,6 +55,7 @@ export function Editor() {
   const canRedo = useEditor((s) => s.future.length > 0);
   const hasImage = useEditor((s) => primaryImage(s) !== undefined);
   const sizeLabel = useEditor((s) => `${s.doc.canvas.width}×${s.doc.canvas.height}`);
+  const timelineOpen = useEditor((s) => s.ui.timelineOpen);
 
   const notify = useCallback((text: string) => {
     setMessage(text);
@@ -55,11 +63,11 @@ export function Editor() {
   }, []);
 
   const importBlob = useCallback(
-    async (blob: Blob, slot?: number) => {
+    async (blob: Blob, slot?: number, knownDuration?: number) => {
       try {
-        editorStore.getState().setImage(await blobToLoadedImage(blob), slot);
-      } catch {
-        notify("That file couldn't be read as an image.");
+        editorStore.getState().setImage(await blobToLoadedMedia(blob, undefined, knownDuration), slot);
+      } catch (e) {
+        notify(e instanceof Error && e.message ? e.message : "That file couldn't be read as an image or video.");
       }
     },
     [notify],
@@ -101,7 +109,10 @@ export function Editor() {
       if (mod || e.altKey) return;
 
       const { selectedId } = store.ui;
-      if (e.key === "Escape") {
+      if (e.key === " " && !(t instanceof HTMLButtonElement)) {
+        e.preventDefault();
+        store.setPlaying(!store.playback.playing);
+      } else if (e.key === "Escape") {
         store.setTool("select");
         store.select(null);
       } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
@@ -129,6 +140,31 @@ export function Editor() {
       notify("Screen capture was cancelled or isn't supported in this browser.");
     }
   }
+
+  async function onRecord() {
+    try {
+      const handle = await startScreenRecording();
+      recorder.current = handle;
+      setElapsed(0);
+      setRecording(true);
+      const finished = await handle.finished;
+      recorder.current = null;
+      setRecording(false);
+      await importBlob(finished.blob, undefined, finished.duration);
+    } catch (e) {
+      recorder.current = null;
+      setRecording(false);
+      notify(e instanceof Error && e.message ? e.message : "Screen recording was cancelled.");
+    }
+  }
+
+  // Show how long the recording has been running.
+  useEffect(() => {
+    if (!recording) return;
+    const started = performance.now();
+    const id = setInterval(() => setElapsed((performance.now() - started) / 1000), 250);
+    return () => clearInterval(id);
+  }, [recording]);
 
   async function onExport() {
     const state = editorStore.getState();
@@ -158,6 +194,7 @@ export function Editor() {
             setTab,
             upload: () => fileInput.current?.click(),
             capture: () => void onCapture(),
+            record: () => void onRecord(),
             addImage: () => layerFileInput.current?.click(),
             download: () => void onExport(),
             copy: () => void onCopy(),
@@ -192,10 +229,19 @@ export function Editor() {
         <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={onCapture}>
           Capture screen
         </button>
+        {recording ? (
+          <button type="button" className={`${btn} bg-red-600 text-white hover:bg-red-500`} onClick={() => recorder.current?.stop()} aria-label="Stop recording">
+            ● Stop {formatTime(elapsed)}
+          </button>
+        ) : (
+          <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => void onRecord()}>
+            Record screen
+          </button>
+        )}
         <input
           ref={fileInput}
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,video/mp4,video/webm,video/quicktime,video/x-m4v"
           className="hidden"
           data-testid="file-input"
           onChange={(e) => {
@@ -207,7 +253,7 @@ export function Editor() {
         <input
           ref={slotFileInput}
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,video/mp4,video/webm,video/quicktime,video/x-m4v"
           className="hidden"
           data-testid="slot-file-input"
           onChange={(e) => {
@@ -241,6 +287,14 @@ export function Editor() {
           Redo
         </button>
         <span className="ml-3 text-xs text-neutral-500">{sizeLabel}</span>
+        <button
+          type="button"
+          aria-pressed={timelineOpen}
+          className={`${btn} ml-2 border border-white/10 ${timelineOpen ? "bg-white/15 text-white" : "text-neutral-400 hover:text-white"}`}
+          onClick={() => editorStore.getState().setTimelineOpen(!timelineOpen)}
+        >
+          Timeline
+        </button>
         <button
           type="button"
           className={`${btn} ml-2 border border-white/10 text-neutral-400 hover:text-white`}
@@ -344,6 +398,7 @@ export function Editor() {
           )}
         </main>
       </div>
+      {timelineOpen && <Timeline />}
       {exportAllOpen && <ExportAllDialog format={format} scale={scale} onClose={() => setExportAllOpen(false)} onDone={notify} />}
       {commands && <CommandPalette commands={commands} onClose={() => setCommands(null)} />}
     </div>

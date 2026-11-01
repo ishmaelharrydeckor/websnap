@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { collectAssetIds } from "@/lib/document/assets";
-import { blobToLoadedImage } from "@/features/capture/import";
+import { blobToLoadedImage, blobToLoadedMedia } from "@/features/capture/import";
 import { loadBrand, loadCurrentDesign, saveBrand, saveCurrentDesign } from "@/lib/storage/designs";
 import { editorStore } from "./store";
 
@@ -21,9 +21,13 @@ export function usePersistence() {
         const saved = await loadCurrentDesign();
         // Don't clobber edits the user already made while the saved design was loading.
         if (!saved || cancelled || editorStore.getState().revision !== 0) return;
-        const images = await Promise.all(
-          Object.entries(saved.blobs).map(([id, blob]) => blobToLoadedImage(blob, id)),
+        // One unreadable file shouldn't stop the rest of the design from coming back.
+        const results = await Promise.allSettled(
+          Object.entries(saved.blobs).map(([id, blob]) =>
+            blobToLoadedMedia(blob, id, saved.doc.media.find((m) => m.assetId === id)?.duration),
+          ),
         );
+        const images = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
         if (cancelled) return;
         editorStore.getState().load(saved.doc, images);
         lastSaved = editorStore.getState().revision;

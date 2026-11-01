@@ -75,10 +75,23 @@ export interface AnimationClip {
   params: Record<string, number>;
 }
 
+/**
+ * A piece of the first screen's video that plays, in source seconds, at a playback speed.
+ * The timeline plays segments back to back; cutting a video splits it into segments.
+ */
+export interface Segment {
+  start: number;
+  end: number;
+  /** 1 = normal; 2 = twice as fast. */
+  speed: number;
+}
+
 export interface Timeline {
-  /** Total length in seconds. */
+  /** Total length in seconds. For a video this is derived from the segments; for images it is set by hand. */
   duration: number;
   clips: AnimationClip[];
+  /** Cuts of the first screen's video. Empty when the first screen is an image. */
+  segments: Segment[];
 }
 
 interface LayerBase {
