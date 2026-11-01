@@ -1,4 +1,4 @@
-import type { VideoTrack } from "./chunks";
+import type { AudioTrack, VideoTrack } from "./chunks";
 
 type Part = Uint8Array;
 
@@ -82,15 +82,57 @@ function sampleEntry(track: VideoTrack): Part {
 
 export interface Mp4Input {
   video: VideoTrack;
+  /** AAC audio, written as a second track. */
+  audio?: AudioTrack;
   /** Total length in seconds; defaults to the end of the last frame. */
   duration?: number;
+}
+
+/** An MPEG-4 descriptor: tag, length (all ours are under 128 bytes), payload. */
+function descriptor(tag: number, ...payload: Part[]): Part {
+  const body = concat(payload);
+  if (body.length >= 128) throw new Error("Descriptor too long");
+  return concat([u8(tag, body.length), body]);
+}
+
+/** The `esds` box that describes an AAC stream, with its AudioSpecificConfig. */
+function esds(config: Uint8Array): Part {
+  return fullBox(
+    "esds",
+    0,
+    0,
+    descriptor(
+      0x03,
+      u16(0), // ES id
+      u8(0), // flags
+      descriptor(0x04, u8(0x40, 0x15), zeros(3), u32(0), u32(0), descriptor(0x05, config)), // AAC, audio stream
+      descriptor(0x06, u8(0x02)),
+    ),
+  );
+}
+
+function audioSampleEntry(track: AudioTrack): Part {
+  if (track.codec !== "aac") throw new Error("MP4 audio must be AAC.");
+  if (!track.description) throw new Error("AAC needs its AudioSpecificConfig to be written to MP4.");
+  return box(
+    "mp4a",
+    zeros(6),
+    u16(1), // data reference index
+    zeros(8),
+    u16(track.channels),
+    u16(16), // sample size
+    u16(0),
+    u16(0),
+    u32(track.sampleRate << 16),
+    esds(track.description),
+  );
 }
 
 /**
  * Writes a (non-fragmented) MP4 with the index first so it starts playing and seeking immediately.
  * Frames must be in decoding order with increasing timestamps (no B-frame reordering).
  */
-export function muxMp4({ video, duration }: Mp4Input): Uint8Array {
+export function muxMp4({ video, audio, duration }: Mp4Input): Uint8Array {
   const chunks = video.chunks;
   if (chunks.length === 0) throw new Error("No video frames to write.");
   for (let i = 1; i < chunks.length; i++) {
@@ -116,41 +158,87 @@ export function muxMp4({ video, duration }: Mp4Input): Uint8Array {
   const keyIndexes = chunks.flatMap((c, i) => (c.key ? [i + 1] : []));
   if (keyIndexes.length === 0 || keyIndexes[0] !== 1) throw new Error("The first frame must be a key frame.");
 
-  const mdatSize = chunks.reduce((n, c) => n + c.data.length, 0);
+  // Audio: AAC frames are all the same length, so the timing is a single run of that length.
+  const audioChunks = audio?.chunks ?? [];
+  if (audio && audioChunks.length === 0) throw new Error("The audio track is empty.");
+  const audioScale = audio?.sampleRate ?? 1;
+  const audioDeltas = audioChunks.map((c, i) => {
+    const t = (us: number) => Math.round((us * audioScale) / 1e6);
+    return i + 1 < audioChunks.length ? Math.max(1, t(audioChunks[i + 1].timestamp) - t(c.timestamp)) : Math.max(1, t(c.duration) || 1024);
+  });
+  const audioRuns: [number, number][] = [];
+  for (const d of audioDeltas) {
+    const last = audioRuns[audioRuns.length - 1];
+    if (last && last[1] === d) last[0]++;
+    else audioRuns.push([1, d]);
+  }
+  const audioDuration = audioDeltas.reduce((n, d) => n + d, 0);
+
+  const videoBytes = chunks.reduce((n, c) => n + c.data.length, 0);
+  const audioBytes = audioChunks.reduce((n, c) => n + c.data.length, 0);
+  const mdatSize = videoBytes + audioBytes;
   if (mdatSize + 8 >= 2 ** 32) throw new Error("This video is too large for a plain MP4 (over 4 GB).");
 
-  const buildMoov = (chunkOffset: number) =>
+  const videoTrak = (chunkOffset: number) =>
     box(
-      "moov",
-      fullBox("mvhd", 0, 0, u32(0), u32(0), u32(MOVIE_TIMESCALE), u32(movieDuration), u32(0x00010000), u16(0x0100), zeros(10), MATRIX, zeros(24), u32(2)),
+      "trak",
+      fullBox("tkhd", 0, 7, u32(0), u32(0), u32(1), zeros(4), u32(movieDuration), zeros(8), u16(0), u16(0), u16(0), zeros(2), MATRIX, u32(video.width << 16), u32(video.height << 16)),
       box(
-        "trak",
-        fullBox("tkhd", 0, 7, u32(0), u32(0), u32(1), zeros(4), u32(movieDuration), zeros(8), u16(0), u16(0), u16(0), zeros(2), MATRIX, u32(video.width << 16), u32(video.height << 16)),
+        "mdia",
+        fullBox("mdhd", 0, 0, u32(0), u32(0), u32(MEDIA_TIMESCALE), u32(mediaDuration), u16(0x55c4), u16(0)),
+        fullBox("hdlr", 0, 0, u32(0), fourcc("vide"), zeros(12), new TextEncoder().encode("VideoHandler\0")),
         box(
-          "mdia",
-          fullBox("mdhd", 0, 0, u32(0), u32(0), u32(MEDIA_TIMESCALE), u32(mediaDuration), u16(0x55c4), u16(0)),
-          fullBox("hdlr", 0, 0, u32(0), fourcc("vide"), zeros(12), new TextEncoder().encode("VideoHandler\0")),
+          "minf",
+          fullBox("vmhd", 0, 1, zeros(8)),
+          box("dinf", fullBox("dref", 0, 0, u32(1), fullBox("url ", 0, 1))),
           box(
-            "minf",
-            fullBox("vmhd", 0, 1, zeros(8)),
-            box("dinf", fullBox("dref", 0, 0, u32(1), fullBox("url ", 0, 1))),
-            box(
-              "stbl",
-              fullBox("stsd", 0, 0, u32(1), sampleEntry(video)),
-              fullBox("stts", 0, 0, u32(runs.length), ...runs.map(([n, d]) => concat([u32(n), u32(d)]))),
-              ...(keyIndexes.length < chunks.length ? [fullBox("stss", 0, 0, u32(keyIndexes.length), ...keyIndexes.map(u32))] : []),
-              fullBox("stsc", 0, 0, u32(1), u32(1), u32(chunks.length), u32(1)),
-              fullBox("stsz", 0, 0, u32(0), u32(chunks.length), ...chunks.map((c) => u32(c.data.length))),
-              fullBox("stco", 0, 0, u32(1), u32(chunkOffset)),
-            ),
+            "stbl",
+            fullBox("stsd", 0, 0, u32(1), sampleEntry(video)),
+            fullBox("stts", 0, 0, u32(runs.length), ...runs.map(([n, d]) => concat([u32(n), u32(d)]))),
+            ...(keyIndexes.length < chunks.length ? [fullBox("stss", 0, 0, u32(keyIndexes.length), ...keyIndexes.map(u32))] : []),
+            fullBox("stsc", 0, 0, u32(1), u32(1), u32(chunks.length), u32(1)),
+            fullBox("stsz", 0, 0, u32(0), u32(chunks.length), ...chunks.map((c) => u32(c.data.length))),
+            fullBox("stco", 0, 0, u32(1), u32(chunkOffset)),
           ),
         ),
       ),
     );
 
+  const audioTrak = (chunkOffset: number) =>
+    box(
+      "trak",
+      fullBox("tkhd", 0, 7, u32(0), u32(0), u32(2), zeros(4), u32(Math.round((audioDuration / audioScale) * MOVIE_TIMESCALE)), zeros(8), u16(0), u16(0), u16(0x0100), zeros(2), MATRIX, u32(0), u32(0)),
+      box(
+        "mdia",
+        fullBox("mdhd", 0, 0, u32(0), u32(0), u32(audioScale), u32(audioDuration), u16(0x55c4), u16(0)),
+        fullBox("hdlr", 0, 0, u32(0), fourcc("soun"), zeros(12), new TextEncoder().encode("SoundHandler\0")),
+        box(
+          "minf",
+          fullBox("smhd", 0, 0, zeros(4)),
+          box("dinf", fullBox("dref", 0, 0, u32(1), fullBox("url ", 0, 1))),
+          box(
+            "stbl",
+            fullBox("stsd", 0, 0, u32(1), audioSampleEntry(audio!)),
+            fullBox("stts", 0, 0, u32(audioRuns.length), ...audioRuns.map(([n, d]) => concat([u32(n), u32(d)]))),
+            fullBox("stsc", 0, 0, u32(1), u32(1), u32(audioChunks.length), u32(1)),
+            fullBox("stsz", 0, 0, u32(0), u32(audioChunks.length), ...audioChunks.map((c) => u32(c.data.length))),
+            fullBox("stco", 0, 0, u32(1), u32(chunkOffset)),
+          ),
+        ),
+      ),
+    );
+
+  const buildMoov = (dataOffset: number) =>
+    box(
+      "moov",
+      fullBox("mvhd", 0, 0, u32(0), u32(0), u32(MOVIE_TIMESCALE), u32(movieDuration), u32(0x00010000), u16(0x0100), zeros(10), MATRIX, zeros(24), u32(audio ? 3 : 2)),
+      videoTrak(dataOffset),
+      ...(audio ? [audioTrak(dataOffset + videoBytes)] : []),
+    );
+
   const ftyp = box("ftyp", fourcc("isom"), u32(0x200), fourcc("isom"), fourcc("iso2"), fourcc(video.codec === "h264" ? "avc1" : "iso2"), fourcc("mp41"));
-  // The sample table holds the offset of the data, which comes after the table: build once to measure, once for real.
+  // The sample tables hold the offsets of the data, which comes after the tables: build once to measure, once for real.
   const moovSize = buildMoov(0).length;
   const moov = buildMoov(ftyp.length + moovSize + 8);
-  return concat([ftyp, moov, u32(8 + mdatSize), fourcc("mdat"), ...chunks.map((c) => c.data)]);
+  return concat([ftyp, moov, u32(8 + mdatSize), fourcc("mdat"), ...chunks.map((c) => c.data), ...audioChunks.map((c) => c.data)]);
 }

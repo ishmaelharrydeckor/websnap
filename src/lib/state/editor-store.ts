@@ -44,6 +44,16 @@ export interface Playback {
   playing: boolean;
 }
 
+/** A music file kept in memory, keyed by the music track's assetId. */
+export interface LoadedAudio {
+  id: string;
+  blob: Blob;
+  /** Length in seconds. */
+  duration: number;
+  /** The element used to preview it. */
+  element?: HTMLAudioElement;
+}
+
 export interface EditorState {
   doc: DesignDocument;
   ui: UiState;
@@ -53,6 +63,7 @@ export interface EditorState {
   past: DesignDocument[];
   future: DesignDocument[];
   images: Record<string, LoadedImage>;
+  audios: Record<string, LoadedAudio>;
   /** Changes whenever the document or its images change; used to trigger autosave. */
   revision: number;
 
@@ -96,7 +107,10 @@ export interface EditorState {
   undo: () => void;
   redo: () => void;
   /** Replace everything (used when loading a saved design). Clears history. */
-  load: (doc: DesignDocument, images: LoadedImage[]) => void;
+  load: (doc: DesignDocument, images: LoadedImage[], audios?: LoadedAudio[]) => void;
+  /** Sets the music track from a loaded file (replacing any current one). */
+  setMusic: (audio: LoadedAudio, name: string) => void;
+  removeMusic: () => void;
 }
 
 export function createEditorStore() {
@@ -111,6 +125,7 @@ export function createEditorStore() {
     past: [],
     future: [],
     images: {},
+    audios: {},
     revision: 0,
 
     update: (recipe, coalesceKey) => {
@@ -266,7 +281,22 @@ export function createEditorStore() {
       set({ doc: future[0], past: [...past, doc], future: future.slice(1), revision: revision + 1 });
     },
 
-    load: (doc, images) => {
+    setMusic: (audio, name) => {
+      lastKey = undefined;
+      set((s) => ({ audios: { ...s.audios, [audio.id]: audio } }));
+      get().update((d) => {
+        d.timeline.sound.music = { assetId: audio.id, name, volume: 0.6, fadeOut: Math.min(2, audio.duration, d.timeline.duration) };
+      });
+    },
+
+    removeMusic: () => {
+      lastKey = undefined;
+      get().update((d) => {
+        d.timeline.sound.music = null;
+      });
+    },
+
+    load: (doc, images, audios = []) => {
       lastKey = undefined;
       set((s) => ({
         doc,
@@ -275,6 +305,7 @@ export function createEditorStore() {
         past: [],
         future: [],
         images: Object.fromEntries(images.map((i) => [i.id, i])),
+        audios: Object.fromEntries(audios.map((a) => [a.id, a])),
         revision: s.revision + 1,
       }));
     },

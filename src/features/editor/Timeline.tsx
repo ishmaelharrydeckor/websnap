@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { loadAudio } from "@/lib/video/media";
 import type { AnimationClip } from "@/lib/document/types";
 import { TILT_PRESETS } from "@/lib/render/perspective";
 import { CLIP_LABELS, fitClips } from "@/lib/timeline/animation";
@@ -267,6 +268,8 @@ export function Timeline() {
         )}
       </div>
 
+      <SoundControls />
+
       <div
         ref={trackRef}
         data-testid="timeline-track"
@@ -376,6 +379,92 @@ export function Timeline() {
       </div>
       {selectedClip && <ClipInspector clip={selectedClip} />}
     </section>
+  );
+}
+
+/** The video's own sound and an optional music track. */
+function SoundControls() {
+  const hasVideo = useEditor((s) => s.doc.media[0]?.kind === "video");
+  const sound = useEditor((s) => s.doc.timeline.sound);
+  const duration = useEditor((s) => s.doc.timeline.duration);
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const update = editorStore.getState().update;
+
+  return (
+    <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-2 text-xs" aria-label="Sound">
+      <span className="pb-1 text-neutral-400">Sound</span>
+      {hasVideo && (
+        <div className="w-44">
+          <Slider
+            label="Video sound"
+            value={Math.round(sound.videoVolume * 100)}
+            min={0}
+            max={100}
+            format={(v) => (v === 0 ? "Muted" : `${v}%`)}
+            onChange={(v) => update((d) => void (d.timeline.sound.videoVolume = v / 100), "video-volume")}
+          />
+        </div>
+      )}
+      {sound.music ? (
+        <>
+          <span className="max-w-48 truncate pb-1 text-neutral-200" title={sound.music.name}>
+            ♪ {sound.music.name}
+          </span>
+          <div className="w-36">
+            <Slider
+              label="Music volume"
+              value={Math.round(sound.music.volume * 100)}
+              min={0}
+              max={100}
+              format={(v) => `${v}%`}
+              onChange={(v) => update((d) => void (d.timeline.sound.music && (d.timeline.sound.music.volume = v / 100)), "music-volume")}
+            />
+          </div>
+          <div className="w-36">
+            <Slider
+              label="Fade out"
+              value={sound.music.fadeOut}
+              min={0}
+              max={Math.max(1, Math.min(8, duration))}
+              step={0.5}
+              format={(v) => `${v}s`}
+              onChange={(v) => update((d) => void (d.timeline.sound.music && (d.timeline.sound.music.fadeOut = v)), "music-fade")}
+            />
+          </div>
+          <button type="button" onClick={() => editorStore.getState().removeMusic()} className="rounded-md bg-white/10 px-2.5 py-1.5 text-red-300 hover:bg-white/20">
+            Remove music
+          </button>
+        </>
+      ) : (
+        <button type="button" onClick={() => input.current?.click()} className="rounded-md bg-white/10 px-2.5 py-1.5 hover:bg-white/20">
+          Add music
+        </button>
+      )}
+      <input
+        ref={input}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        data-testid="music-input"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          try {
+            setError(null);
+            editorStore.getState().setMusic(await loadAudio(file), file.name);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "That file couldn't be used as music.");
+          }
+        }}
+      />
+      {error && (
+        <span role="alert" className="pb-1 text-red-300">
+          {error}
+        </span>
+      )}
+    </div>
   );
 }
 

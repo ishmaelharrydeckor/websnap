@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { EncodedChunk } from "./chunks";
 import { avcDecoderConfig, bytesOf, ensureAvcc, isAvccKeyFrame, nalType, splitAnnexB, toAvcc } from "./h264";
 import { muxMp4 } from "./mp4";
-import { decodeErrors, ffmpeg, hasFfmpeg, pixelAt, probe, readIvf, tempDir, writeTemp } from "./test-utils";
+import { decodeErrors, ffmpeg, hasFfmpeg, meanVolumeDb, pixelAt, probe, readAdts, readIvf, tempDir, writeTemp } from "./test-utils";
 import { readFileSync } from "node:fs";
 
 /** Cuts an Annex B H.264 file into one length-prefixed sample per frame, plus its avcC. */
@@ -176,6 +176,44 @@ describe.skipIf(!hasFfmpeg)("Annex B from a real encoder", () => {
     const file = writeTemp(dir, "annexb.mp4", muxMp4({ video: { codec: "h264", width: 320, height: 180, description: fixed.description, chunks: fixed.chunks } }));
     expect(Number(probe(file).streams[0].nb_read_frames)).toBe(80);
     expect(decodeErrors(file)).toBe("");
+  });
+});
+
+describe.skipIf(!hasFfmpeg)("MP4 with AAC audio, checked with ffmpeg", () => {
+  for (const [rate, channels] of [[48000, 2], [44100, 1]] as const) {
+    it(`carries ${rate} Hz ${channels === 1 ? "mono" : "stereo"} AAC next to the video, in sync`, () => {
+      const dir = tempDir();
+      const h264 = `${dir}/in.h264`;
+      const aac = `${dir}/in.aac`;
+      ffmpeg([...sources(20), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-g", "10", "-bf", "0", "-f", "h264", h264]);
+      ffmpeg(["-f", "lavfi", "-i", `sine=frequency=440:sample_rate=${rate}:duration=4`, "-ac", String(channels), "-c:a", "aac", "-f", "adts", aac]);
+      const { chunks, description } = readH264(h264, 20);
+      const audio = readAdts(aac);
+      expect([audio.sampleRate, audio.channels]).toEqual([rate, channels]);
+
+      const file = writeTemp(dir, "av.mp4", muxMp4({ video: { codec: "h264", width: 320, height: 180, description, chunks }, audio, duration: 4 }));
+      const p = probe(file);
+      const a = p.streams.find((s) => s.codec_type === "audio")!;
+      expect(a.codec_name).toBe("aac");
+      expect(Number(a.sample_rate)).toBe(rate);
+      expect(a.channels).toBe(channels);
+      expect(p.streams.find((s) => s.codec_type === "video")!.codec_name).toBe("h264");
+      expect(Number(p.format.duration)).toBeCloseTo(4, 1);
+      expect(decodeErrors(file)).toBe("");
+      expect(meanVolumeDb(file)).toBeGreaterThan(-30); // a clear tone, not silence
+    });
+  }
+
+  it("needs the AudioSpecificConfig and only takes AAC", () => {
+    const dir = tempDir();
+    const h264 = `${dir}/in.h264`;
+    ffmpeg([...sources(10), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-bf", "0", "-f", "h264", h264]);
+    const { chunks, description } = readH264(h264, 10);
+    const video = { codec: "h264" as const, width: 320, height: 180, description, chunks };
+    const aud = { sampleRate: 48000, channels: 2, chunks: [{ data: Uint8Array.from([1]), timestamp: 0, duration: 21333, key: true }] };
+    expect(() => muxMp4({ video, audio: { ...aud, codec: "aac" } })).toThrow(/AudioSpecificConfig/);
+    expect(() => muxMp4({ video, audio: { ...aud, codec: "opus", description: Uint8Array.from([1, 2]) } })).toThrow(/AAC/);
+    expect(() => muxMp4({ video, audio: { ...aud, codec: "aac", description: Uint8Array.from([18, 16]), chunks: [] } })).toThrow(/empty/);
   });
 });
 

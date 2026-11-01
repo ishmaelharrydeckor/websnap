@@ -92,12 +92,31 @@ export interface Segment {
   speed: number;
 }
 
+/** A music track laid under the whole timeline. */
+export interface MusicTrack {
+  /** Key of the audio file in local storage. */
+  assetId: string;
+  /** File name, for display. */
+  name: string;
+  /** 0-1. */
+  volume: number;
+  /** Seconds over which it fades out at the end of the timeline. */
+  fadeOut: number;
+}
+
+export interface Sound {
+  /** Volume of the first screen's video sound: 0 mutes it, 1 is as recorded. */
+  videoVolume: number;
+  music: MusicTrack | null;
+}
+
 export interface Timeline {
   /** Total length in seconds. For a video this is derived from the segments; for images it is set by hand. */
   duration: number;
   clips: AnimationClip[];
   /** Cuts of the first screen's video. Empty when the first screen is an image. */
   segments: Segment[];
+  sound: Sound;
 }
 
 interface LayerBase {

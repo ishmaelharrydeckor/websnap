@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { afterAll } from "vitest";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { EncodedChunk } from "./chunks";
+import type { AudioTrack, EncodedChunk } from "./chunks";
 
 export const hasFfmpeg = (() => {
   try {
@@ -90,4 +90,68 @@ export function readIvf(file: string, codec: "vp8" | "vp9"): { width: number; he
     at += 12 + size;
   }
   return { width, height, chunks };
+}
+
+const ADTS_RATES = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
+
+/** Reads an ADTS AAC file (what ffmpeg writes for raw AAC) into frames plus its AudioSpecificConfig. */
+export function readAdts(file: string): AudioTrack {
+  const buf = readFileSync(file);
+  const chunks: EncodedChunk[] = [];
+  let sampleRate = 0;
+  let channels = 0;
+  let description: Uint8Array | undefined;
+  for (let at = 0, i = 0; at + 7 <= buf.length; i++) {
+    if (buf[at] !== 0xff || (buf[at + 1] & 0xf0) !== 0xf0) throw new Error(`Lost ADTS sync at ${at}`);
+    const headerSize = buf[at + 1] & 1 ? 7 : 9;
+    const objectType = (buf[at + 2] >> 6) + 1;
+    const rateIndex = (buf[at + 2] >> 2) & 0xf;
+    channels = ((buf[at + 2] & 1) << 2) | (buf[at + 3] >> 6);
+    const length = ((buf[at + 3] & 3) << 11) | (buf[at + 4] << 3) | (buf[at + 5] >> 5);
+    sampleRate = ADTS_RATES[rateIndex];
+    const config = (objectType << 11) | (rateIndex << 7) | (channels << 3);
+    description ??= Uint8Array.from([config >> 8, config & 0xff]);
+    chunks.push({ data: new Uint8Array(buf.subarray(at + headerSize, at + length)), timestamp: Math.round((i * 1024 * 1e6) / sampleRate), duration: Math.round((1024 * 1e6) / sampleRate), key: true });
+    at += length;
+  }
+  return { codec: "aac", sampleRate, channels, description, chunks };
+}
+
+/** Reads an Ogg Opus file into packets plus its OpusHead, assuming the usual 20 ms frames. */
+export function readOggOpus(file: string): AudioTrack {
+  const buf = readFileSync(file);
+  const packets: Uint8Array[] = [];
+  let partial: number[] = [];
+  for (let at = 0; at + 27 <= buf.length; ) {
+    if (buf.toString("latin1", at, at + 4) !== "OggS") throw new Error(`Lost Ogg sync at ${at}`);
+    const segments = buf[at + 26];
+    let data = at + 27 + segments;
+    for (let s = 0; s < segments; s++) {
+      const len = buf[at + 27 + s];
+      partial.push(...buf.subarray(data, data + len));
+      data += len;
+      if (len < 255) {
+        packets.push(Uint8Array.from(partial));
+        partial = [];
+      }
+    }
+    at = data;
+  }
+  const head = packets[0];
+  const channels = head[9];
+  const audio = packets.slice(2); // skip OpusHead and OpusTags
+  return {
+    codec: "opus",
+    sampleRate: 48000,
+    channels,
+    description: head,
+    chunks: audio.map((data, i) => ({ data, timestamp: i * 20000, duration: 20000, key: true })),
+  };
+}
+
+/** Mean volume in dB of a file's audio (about -91 means silence). */
+export function meanVolumeDb(file: string): number {
+  const r = spawnSync("ffmpeg", ["-hide_banner", "-i", file, "-vn", "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8" });
+  const m = /mean_volume:\s*(-?[\d.]+|-inf) dB/.exec(r.stderr ?? "");
+  return m ? Number(m[1] === "-inf" ? -Infinity : m[1]) : -Infinity;
 }

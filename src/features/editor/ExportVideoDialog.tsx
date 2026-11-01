@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SIZE_PRESETS } from "@/lib/assets/sizes";
 import { downloadBlob } from "@/lib/export/exporter";
-import { ExportCancelled, exportVideo, VIDEO_FORMATS, videoFormatSupport, type VideoFormat } from "@/lib/export/video";
+import { planAudioMix } from "@/lib/export/audio-plan";
+import { ExportCancelled, exportVideo, VIDEO_FORMATS, videoFormatSupport, type SoundOutcome, type VideoFormat } from "@/lib/export/video";
 import { syncVideos } from "@/lib/video/sync";
 import { formatTime } from "./Timeline";
 import { editorStore, useEditor } from "./store";
@@ -19,13 +20,28 @@ function outputSize(width: number, height: number, scale: number) {
   return { width: even(width), height: even(height) };
 }
 
+/** A note for the toast: confirms sound, or says so when sound was wanted but didn't make it into the file. */
+function soundNote(outcome: SoundOutcome, format: VideoFormat, wanted: boolean): string {
+  if (outcome === "included") return ", with sound";
+  if (!wanted || outcome === "none" || format === "gif") return "";
+  return outcome === "unsupported" ? ` - no sound: this browser can't encode ${format === "mp4" ? "AAC" : "Opus"} audio.` : " - no sound: the audio couldn't be processed.";
+}
+
 export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
   const canvas = useEditor((s) => s.doc.canvas);
   const duration = useEditor((s) => s.doc.timeline.duration);
+  // Is there any sound to put in the file? (The video's own, unless muted, or a music track.)
+  const hasSound = useEditor((s) => {
+    const first = s.doc.media[0];
+    const music = s.doc.timeline.sound.music;
+    return planAudioMix(s.doc, music ? s.audios[music.assetId]?.duration : undefined).length > 0 || (first?.kind === "video" && s.doc.timeline.sound.videoVolume > 0);
+  });
   const [format, setFormat] = useState<VideoFormat>("mp4");
   const [sizeId, setSizeId] = useState(canvas.sizeId);
   const [scale, setScale] = useState(1);
   const [fps, setFps] = useState(30);
+  const [sound, setSound] = useState(true);
+  const [stage, setStage] = useState<"frames" | "sound" | "finishing">("frames");
   const [support, setSupport] = useState<Record<VideoFormat, boolean> | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,18 +83,21 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
     store.setPlaying(false);
     abort.current = new AbortController();
     setProgress({ done: 0, total: frames });
+    setStage("frames");
     try {
-      const blob = await exportVideo(store, {
+      const { blob, sound: outcome } = await exportVideo(store, {
         format,
         width: size.width,
         height: size.height,
         fps,
+        sound: sound && format !== "gif",
         onProgress: (done, total) => setProgress({ done, total }),
+        onStage: setStage,
         signal: abort.current.signal,
       });
       const ext = VIDEO_FORMATS.find((f) => f.id === format)!.ext;
       downloadBlob(blob, `websnap-video.${ext}`);
-      onDone(`Exported ${ext.toUpperCase()} (${(blob.size / 1e6).toFixed(1)} MB)`);
+      onDone(`Exported ${ext.toUpperCase()} (${(blob.size / 1e6).toFixed(1)} MB)${soundNote(outcome, format, sound && hasSound)}`);
       onClose();
     } catch (e) {
       setProgress(null);
@@ -169,6 +188,12 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
             </select>
           </label>
         </div>
+        {format !== "gif" && hasSound && (
+          <label className="mt-3 flex items-center gap-2 text-xs text-neutral-300">
+            <input type="checkbox" checked={sound} disabled={busy} onChange={(e) => setSound(e.target.checked)} className="size-4 accent-orange-500" />
+            Include sound
+          </label>
+        )}
         <p className="mt-3 text-xs text-neutral-500" data-testid="video-summary">
           {size.width}×{size.height} · {frames} frames
         </p>
@@ -179,7 +204,7 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
               <div className="h-full bg-orange-500 transition-[width]" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
             </div>
             <p className="mt-1 text-xs text-neutral-400">
-              Rendering frame {progress.done} of {progress.total}
+              {stage === "frames" ? `Rendering frame ${progress.done} of ${progress.total}` : stage === "sound" ? "Adding sound…" : "Finishing…"}
             </p>
           </div>
         )}

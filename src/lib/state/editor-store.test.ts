@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { collectAssetIds } from "../document/assets";
 import { removeSegment, setSpeed, splitAt, trimSegment } from "../timeline/segments";
 import { createEditorStore, primaryImage, type LoadedImage } from "./editor-store";
 
@@ -306,5 +307,37 @@ describe("timeline selection", () => {
     const id = s.getState().doc.timeline.clips[0].id;
     s.getState().selectClip(id);
     expect(s.getState().ui.selectedSegment).toBeNull();
+  });
+});
+
+describe("music", () => {
+  const track = { id: "m", blob: new Blob(["a"], { type: "audio/wav" }), duration: 30 };
+
+  it("sets a music track with sensible defaults, and undo removes it", () => {
+    const s = createEditorStore();
+    s.getState().setMusic(track, "song.wav");
+    expect(s.getState().doc.timeline.sound.music).toEqual({ assetId: "m", name: "song.wav", volume: 0.6, fadeOut: 2 });
+    expect(s.getState().audios.m).toBeDefined();
+    s.getState().undo();
+    expect(s.getState().doc.timeline.sound.music).toBeNull();
+  });
+
+  it("limits the fade-out to a short music file or timeline", () => {
+    const s = createEditorStore();
+    s.getState().setMusic({ ...track, duration: 1 }, "blip.wav");
+    expect(s.getState().doc.timeline.sound.music?.fadeOut).toBe(1);
+  });
+
+  it("removes the track", () => {
+    const s = createEditorStore();
+    s.getState().setMusic(track, "song.wav");
+    s.getState().removeMusic();
+    expect(s.getState().doc.timeline.sound.music).toBeNull();
+  });
+
+  it("is saved with the design's assets", () => {
+    const s = createEditorStore();
+    s.getState().setMusic(track, "song.wav");
+    expect(collectAssetIds(s.getState().doc)).toContain("m");
   });
 });

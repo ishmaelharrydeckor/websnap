@@ -29,6 +29,6 @@ export function createDefaultDocument(): DesignDocument {
     watermark: { show: false, text: "yourproduct.com" },
     media: [],
     layers: [],
-    timeline: { duration: 10, clips: [], segments: [] },
+    timeline: { duration: 10, clips: [], segments: [], sound: { videoVolume: 1, music: null } },
   };
 }

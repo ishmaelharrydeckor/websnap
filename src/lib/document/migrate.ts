@@ -20,7 +20,7 @@ export function normalizeDocument(saved: Partial<DesignDocument>): DesignDocumen
     watermark: { ...d.watermark, ...saved.watermark },
     media: saved.media ?? d.media,
     layers: saved.layers ?? d.layers,
-    timeline: { ...d.timeline, ...saved.timeline },
+    timeline: { ...d.timeline, ...saved.timeline, sound: { ...d.timeline.sound, ...saved.timeline?.sound } },
     background: saved.background ?? d.background,
   };
 }

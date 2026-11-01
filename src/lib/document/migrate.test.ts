@@ -15,6 +15,14 @@ describe("normalizeDocument", () => {
     expect(doc.headline.size).toBe(56);
   });
 
+  it("adds the sound settings to a design saved before audio existed", () => {
+    const old = createDefaultDocument() as Partial<ReturnType<typeof createDefaultDocument>>;
+    old.timeline = { duration: 7, clips: [], segments: [] } as never;
+    const doc = normalizeDocument(old);
+    expect(doc.timeline.sound).toEqual({ videoVolume: 1, music: null });
+    expect(doc.timeline.duration).toBe(7);
+  });
+
   it("keeps saved values", () => {
     const base = createDefaultDocument();
     base.shot.radius = 33;

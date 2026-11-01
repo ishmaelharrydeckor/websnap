@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { collectAssetIds } from "@/lib/document/assets";
 import { blobToLoadedImage, blobToLoadedMedia } from "@/features/capture/import";
+import { isAudioBlob, loadAudio } from "@/lib/video/media";
 import { loadBrand, loadCurrentDesign, saveBrand, saveCurrentDesign } from "@/lib/storage/designs";
 import { editorStore } from "./store";
 
@@ -22,14 +23,15 @@ export function usePersistence() {
         // Don't clobber edits the user already made while the saved design was loading.
         if (!saved || cancelled || editorStore.getState().revision !== 0) return;
         // One unreadable file shouldn't stop the rest of the design from coming back.
+        const entries = Object.entries(saved.blobs);
         const results = await Promise.allSettled(
-          Object.entries(saved.blobs).map(([id, blob]) =>
-            blobToLoadedMedia(blob, id, saved.doc.media.find((m) => m.assetId === id)?.duration),
-          ),
+          entries.filter(([, blob]) => !isAudioBlob(blob)).map(([id, blob]) => blobToLoadedMedia(blob, id, saved.doc.media.find((m) => m.assetId === id)?.duration)),
         );
         const images = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+        const audioResults = await Promise.allSettled(entries.filter(([, blob]) => isAudioBlob(blob)).map(([id, blob]) => loadAudio(blob, id)));
+        const audios = audioResults.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
         if (cancelled) return;
-        editorStore.getState().load(saved.doc, images);
+        editorStore.getState().load(saved.doc, images, audios);
         lastSaved = editorStore.getState().revision;
       } catch {
         // Storage can be unavailable (private mode, blocked site data); the editor still works.
@@ -42,8 +44,8 @@ export function usePersistence() {
         if (state.revision === lastSaved) return;
         clearTimeout(timer);
         timer = setTimeout(async () => {
-          const { doc, images, revision } = editorStore.getState();
-          const blobs = Object.fromEntries(collectAssetIds(doc).map((id) => [id, images[id]?.blob]).filter(([, b]) => b));
+          const { doc, images, audios, revision } = editorStore.getState();
+          const blobs = Object.fromEntries(collectAssetIds(doc).map((id) => [id, images[id]?.blob ?? audios[id]?.blob]).filter(([, b]) => b));
           try {
             await saveCurrentDesign(doc, blobs as Record<string, Blob>);
             lastSaved = revision;

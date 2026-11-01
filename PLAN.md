@@ -113,21 +113,30 @@ they keep their place on the screenshot across export sizes, layouts and tilts; 
 Remaining limits: text and numbered steps under tilt follow the screen's local rotation and scale but
 are not foreshortened; rounded rectangle corners become straight when tilted.
 
-### Phase 4: Video and animation (in progress)
-Done:
+### Phase 4: Video and animation (done)
 - Video as media: upload (mp4/webm/mov) or record the screen (with sound); playback synced to a clock, scrub,
   looping; recordings made seekable; videos persist locally.
 - Timeline editing: split at the playhead, delete segments, speed 0.5x-16x, drag-to-trim; each edit is one
   undo step and the timeline length follows.
 - Animations: zoom (with gliding between close zooms), parallax drift, tilt clips, and layers that appear on cue;
   clips are dragged and resized on a track. Mouse editing pauses while a zoom/drift is in view.
+- Sound: the first screen's video sound follows its cuts and speed (parts faster than 2x are left silent),
+  with a volume control; an optional music track with volume and a fade-out, trimmed to the timeline.
+  The preview plays both.
 - Export (frame-accurate: every frame is rendered at its exact time, with each video seeked to its exact
-  frame): WebM (VP9, VP8 fallback), MP4 (H.264), GIF (shared palette, dithering, frame differencing).
-  Own WebM/MP4 muxers and GIF encoder, verified with ffprobe/ffmpeg; progress and cancel.
-Not verified here: MP4 export through the browser. The sandbox's Chromium has no H.264 encoder, so the
-MP4 muxer was checked with real ffmpeg H.264 (valid, correct frames, seeking) but the live WebCodecs
-H.264 path has not run. It is hidden when the browser can't encode H.264.
-Remaining: audio (keep the recording's sound, music track) - see below.
+  frame): WebM (VP9 + Opus), MP4 (H.264 + AAC), GIF (shared palette, dithering, frame differencing).
+  Own WebM/MP4 muxers and GIF encoder; progress and cancel; sound is reported honestly if a browser can't
+  encode it.
+
+Verification: muxers and the browser's WebM/GIF exports were checked against ffmpeg/ffprobe (frame counts,
+durations, seeking, pixel colours at known times, tone frequency and level of the audio). The sandbox's
+Chromium has no H.264 or AAC encoder, so the live MP4 path (WebCodecs H.264 + AAC) has NOT run end to end:
+the MP4 muxer was verified with real ffmpeg H.264 and AAC streams, and MP4 is disabled in the dialog when the
+browser can't encode H.264. Needs a try in real Chrome/Edge/Safari.
+
+Known limits: only the first screen's video is on the timeline's cuts and sound (videos in other screens loop
+silently); sped-up audio changes pitch (no time-stretching); no waveform or filmstrip thumbnails; the preview
+of music is approximate when scrubbing; Chromium is the only browser exercised.
 
 ### Phase 5: Sharing and extras
 Upload + public links (self-hostable), screenshot-a-URL (headless browser service),

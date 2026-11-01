@@ -1,4 +1,4 @@
-import type { LoadedImage } from "../state/editor-store";
+import type { LoadedAudio, LoadedImage } from "../state/editor-store";
 
 export const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v", "video/ogg"];
 
@@ -69,4 +69,40 @@ export async function loadVideo(blob: Blob, id: string = crypto.randomUUID(), kn
   video.width = video.videoWidth;
   video.height = video.videoHeight;
   return { id, kind: "video", width: video.videoWidth, height: video.videoHeight, source: video, blob, duration, video };
+}
+
+export const AUDIO_TYPES = ["audio/mpeg", "audio/mp3", "audio/mp4", "audio/aac", "audio/wav", "audio/x-wav", "audio/webm", "audio/ogg", "audio/opus", "audio/flac", "audio/x-m4a"];
+
+export function isAudioBlob(blob: Blob): boolean {
+  return blob.type.startsWith("audio/");
+}
+
+/** Loads an audio file (music) and reads its length. */
+export async function loadAudio(blob: Blob, id: string = crypto.randomUUID()): Promise<LoadedAudio> {
+  const url = URL.createObjectURL(blob);
+  const element = new Audio();
+  element.preload = "auto";
+  element.src = url;
+  const ready = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Timed out reading this audio file.")), 20000);
+    element.addEventListener("loadedmetadata", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    element.addEventListener("error", () => {
+      clearTimeout(timer);
+      reject(new Error("This audio file can't be played by your browser."));
+    });
+  });
+  try {
+    await ready;
+  } catch (e) {
+    URL.revokeObjectURL(url);
+    throw e;
+  }
+  if (!Number.isFinite(element.duration) || element.duration <= 0) {
+    URL.revokeObjectURL(url);
+    throw new Error("This audio file has no length, so it can't be used.");
+  }
+  return { id, blob, duration: element.duration, element };
 }
