@@ -36,7 +36,7 @@ Inspiration (ideas only; no code, assets or branding are copied):
 | Recording | Record tab/window/screen + mic; trim/split/speed; zoom regions; captions; audio |
 | Animation | Timeline, parallax/zoom/tilt presets, animated mockup export |
 | Effects | Noise, VHS, glitch, 3D shapes/scenes (later) |
-| Share | Optional upload + public link (Phase 4) |
+| Share | Optional upload + public link (Phase 5, self-hosted) |
 
 ## Stack
 - Next.js (App Router) + TypeScript + Tailwind
@@ -140,7 +140,7 @@ Known limits: only the first screen's video is heard (others follow the cuts but
 changes pitch (no time-stretching); the preview of music is approximate when scrubbing; Chromium is the only
 browser exercised. Still open: MP4 (H.264/AAC) needs a try in real Chrome/Edge/Safari.
 
-### Phase 5: Sharing and extras
+### Phase 5: Sharing and extras (done)
 Done so far: **effects** (film grain, VHS, glitch): sliders in the Background tab, applied by the shared renderer to
 preview, images and every video frame, animated over time and repeatable frame by frame. Cost at 1600x900 is
 about 15-40 ms per frame, so the preview may drop below 30 fps with all three at maximum; export is unaffected.
@@ -170,7 +170,8 @@ shapes behind the screens and a few in front, drifting with the camera's paralla
 timeline (so video exports animate). Limits: not real WebGL (no reflections, shadows or textures), shapes
 don't intersect or cast shadows, fixed light direction, no custom 3D models.
 
-Still to do: desktop and browser-extension wrappers.
+**Decision: no desktop or browser-extension wrappers.** WebSnap stays a web app (the project owner's call):
+everything it needs (upload, paste, drop, screen capture, recording, export) already works in the browser.
 
 ## Templates
 Templates are JSON documents in our own model that keep the user's content when swapped.
