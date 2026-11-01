@@ -139,3 +139,44 @@ describe("preview music", () => {
     expect(a3.el.paused).toBe(true);
   });
 });
+
+describe("a second screen's video", () => {
+  function twoScreens(time: number, playing: boolean, secondLength = 10) {
+    const a = fakeMedia();
+    const b = fakeMedia({ duration: secondLength });
+    const doc: DesignDocument = createDefaultDocument();
+    doc.media = [
+      { id: "a", kind: "video", assetId: "a", width: 640, height: 360, duration: 10 },
+      { id: "b", kind: "video", assetId: "b", width: 640, height: 360, duration: secondLength },
+    ];
+    // Keep 2-4 s of the source, then 6-8 s at double speed.
+    doc.timeline.segments = [{ start: 2, end: 4, speed: 1 }, { start: 6, end: 8, speed: 2 }];
+    doc.timeline.duration = 3;
+    const images = {
+      a: { id: "a", kind: "video", video: a as unknown as HTMLVideoElement } as LoadedImage,
+      b: { id: "b", kind: "video", video: b as unknown as HTMLVideoElement } as LoadedImage,
+    };
+    syncVideos({ doc, images, audios: {}, playback: { time, playing } });
+    return { a, b };
+  }
+
+  it("follows the same cuts as the first", () => {
+    const { a, b } = twoScreens(0.5, false);
+    expect(a.currentTime).toBeCloseTo(2.5);
+    expect(b.currentTime).toBeCloseTo(2.5);
+    const later = twoScreens(2.5, false); // 0.5 s into the sped-up piece
+    expect(later.b.currentTime).toBeCloseTo(7);
+  });
+
+  it("runs at the segment's speed, silently", () => {
+    const { a, b } = twoScreens(2.5, true);
+    expect(b.playbackRate).toBe(2);
+    expect(b.muted).toBe(true);
+    expect(a.muted).toBe(false);
+  });
+
+  it("wraps around when its video is shorter", () => {
+    const { b } = twoScreens(2.5, false, 5); // source position 7 wraps to 2 in a 5 s video
+    expect(b.currentTime).toBeCloseTo(2);
+  });
+});

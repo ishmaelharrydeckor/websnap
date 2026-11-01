@@ -87,3 +87,15 @@ export function trimSegment(segments: Segment[], index: number, edge: "start" | 
 export function wholeVideo(duration: number): Segment[] {
   return [{ start: 0, end: duration, speed: 1 }];
 }
+
+/**
+ * Where screen `index`'s video should be at timeline time `t`. The cuts and speeds belong to the whole project:
+ * the first screen's video is the master, and the others run through the same source positions at the same speed,
+ * wrapping around when they are shorter.
+ */
+export function videoPositionAt(segments: Segment[], index: number, t: number, length: number): { source: number; speed: number } | undefined {
+  const pos = sourceAt(segments, t);
+  if (!pos) return undefined;
+  const source = index === 0 || !(length > 0) ? pos.source : pos.source % length;
+  return { source, speed: pos.speed };
+}

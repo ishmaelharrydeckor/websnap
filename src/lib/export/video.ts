@@ -7,7 +7,7 @@ import { muxMp4 } from "../video/mp4";
 import { seekVideo } from "../video/media";
 import { muxWebm } from "../video/webm";
 import { renderDocument } from "../render/render";
-import { sourceAt } from "../timeline/segments";
+import { videoPositionAt } from "../timeline/segments";
 import type { DesignDocument } from "../document/types";
 import type { EditorState } from "../state/editor-store";
 import { scaleDocumentToSize } from "./sizes";
@@ -113,15 +113,9 @@ async function seekVideosTo(state: Pick<EditorState, "doc" | "images">, t: numbe
       const video = images[m.assetId]?.video;
       if (!video) return undefined;
       if (!video.paused) video.pause();
-      let target = 0;
-      if (i === 0) {
-        const pos = sourceAt(doc.timeline.segments, t);
-        if (!pos) return undefined;
-        target = pos.source;
-      } else {
-        const length = m.duration ?? video.duration;
-        target = length > 0 ? t % length : 0;
-      }
+      const pos = videoPositionAt(doc.timeline.segments, i, t, m.duration ?? video.duration);
+      if (!pos) return undefined;
+      const target = pos.source;
       // Stay clear of the very last instant, where some browsers report no frame.
       return seekVideo(video, Math.min(target, Math.max(0, (video.duration || target) - 0.001)));
     }),

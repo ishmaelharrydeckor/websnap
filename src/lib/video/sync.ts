@@ -1,6 +1,6 @@
 import type { EditorState } from "../state/editor-store";
 import { MAX_AUDIBLE_SPEED, musicFadeAt } from "../export/audio-plan";
-import { sourceAt } from "../timeline/segments";
+import { sourceAt, videoPositionAt } from "../timeline/segments";
 
 /** Browsers cap normal-quality playback speed; above this we keep seeking instead. */
 const MAX_NATIVE_RATE = 16;
@@ -13,7 +13,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 /**
  * Points every video at where the playhead says it should be. While paused each video is parked on the
  * exact frame; while playing it runs at the segment's speed and is only re-seeked when it drifts or the
- * timeline jumps (a cut, a loop). The first screen follows the segments; others loop on their own length.
+ * timeline jumps (a cut, a loop). Every screen follows the segments (cuts and speed); screens with shorter videos wrap around.
  */
 export function syncVideos(state: Pick<EditorState, "doc" | "images" | "playback" | "audios">) {
   syncMusic(state);
@@ -27,17 +27,10 @@ export function syncVideos(state: Pick<EditorState, "doc" | "images" | "playback
     video.muted = i !== 0 || volume <= 0 || firstSpeed > MAX_AUDIBLE_SPEED;
     video.volume = Math.max(0, Math.min(1, volume));
 
-    let target: number;
-    let rate = 1;
-    if (i === 0) {
-      const pos = sourceAt(doc.timeline.segments, playback.time);
-      if (!pos) return;
-      target = pos.source;
-      rate = pos.speed;
-    } else {
-      const length = m.duration ?? video.duration;
-      target = length > 0 ? playback.time % length : 0;
-    }
+    const pos = videoPositionAt(doc.timeline.segments, i, playback.time, m.duration ?? video.duration);
+    if (!pos) return;
+    const target = pos.source;
+    const rate = pos.speed;
 
     if (!playback.playing) {
       if (!video.paused) video.pause();
