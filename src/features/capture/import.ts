@@ -1,7 +1,7 @@
 import type { LoadedImage } from "@/lib/state/editor-store";
 import { isVideoBlob, loadVideo, VIDEO_TYPES } from "@/lib/video/media";
 
-const ACCEPTED = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/bmp"];
+const ACCEPTED = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/bmp", "image/svg+xml"];
 
 export function isImageFile(file: File | Blob): boolean {
   return ACCEPTED.includes(file.type);
@@ -17,7 +17,7 @@ export async function blobToLoadedMedia(blob: Blob, id: string = crypto.randomUU
 }
 
 export async function blobToLoadedImage(blob: Blob, id: string = crypto.randomUUID()): Promise<LoadedImage> {
-  const bitmap = await createImageBitmap(blob);
+  const bitmap = blob.type === "image/svg+xml" ? await rasterizeSvg(blob) : await createImageBitmap(blob);
   return { id, width: bitmap.width, height: bitmap.height, source: bitmap, blob };
 }
 
@@ -56,5 +56,28 @@ export async function captureScreenFrame(): Promise<Blob> {
     );
   } finally {
     stream.getTracks().forEach((t) => t.stop());
+  }
+}
+
+const SVG_TARGET = 1600;
+
+/** Browsers can't make an ImageBitmap straight from an SVG, so draw it onto a canvas at a sharp size first. */
+async function rasterizeSvg(blob: Blob): Promise<ImageBitmap> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    // SVGs with only a viewBox can report 0 or a default size; fall back to a square-ish default.
+    const w = img.naturalWidth || 300;
+    const h = img.naturalHeight || 150;
+    const k = SVG_TARGET / Math.max(w, h);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(w * k));
+    canvas.height = Math.max(1, Math.round(h * k));
+    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return await createImageBitmap(canvas);
+  } finally {
+    URL.revokeObjectURL(url);
   }
 }

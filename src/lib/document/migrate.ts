@@ -11,7 +11,7 @@ export function normalizeDocument(saved: Partial<DesignDocument>): DesignDocumen
     ...d,
     ...saved,
     version: 1,
-    canvas: { ...d.canvas, ...saved.canvas },
+    canvas: sanitizeCanvas({ ...d.canvas, ...saved.canvas }, d.canvas),
     frame: { ...d.frame, ...saved.frame },
     layout: { ...d.layout, ...saved.layout },
     tilt: { ...d.tilt, ...saved.tilt },
@@ -23,4 +23,12 @@ export function normalizeDocument(saved: Partial<DesignDocument>): DesignDocumen
     timeline: { ...d.timeline, ...saved.timeline, sound: { ...d.timeline.sound, ...saved.timeline?.sound } },
     background: saved.background ?? d.background,
   };
+}
+
+const clampSize = (n: unknown, fallback: number) =>
+  typeof n === "number" && Number.isFinite(n) ? Math.min(8192, Math.max(16, Math.round(n))) : fallback;
+
+/** A zero, negative or absurd canvas size would crash the renderer, so pull it back into range. */
+function sanitizeCanvas(c: DesignDocument["canvas"], fallback: DesignDocument["canvas"]): DesignDocument["canvas"] {
+  return { ...c, width: clampSize(c.width, fallback.width), height: clampSize(c.height, fallback.height) };
 }

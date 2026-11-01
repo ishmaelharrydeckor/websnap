@@ -32,3 +32,13 @@ describe("normalizeDocument", () => {
     expect(doc.canvas.sizeId).toBe("story");
   });
 });
+
+describe("normalizeDocument canvas sanitising", () => {
+  it("pulls a zero, negative, NaN or huge canvas back into range", () => {
+    const bad = (width: number, height: number) =>
+      normalizeDocument({ canvas: { sizeId: "x", width, height } as never }).canvas;
+    expect(bad(0, 0).width).toBeGreaterThanOrEqual(16);
+    expect(bad(-5, NaN).height).toBeGreaterThanOrEqual(16);
+    expect(bad(1e9, 100).width).toBe(8192);
+  });
+});
