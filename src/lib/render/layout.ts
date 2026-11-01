@@ -32,6 +32,8 @@ export const PLACEHOLDER_SIZE: ImageSize = { width: 1600, height: 1000 };
 export const SLOT_COUNT: Record<LayoutKind, number> = { single: 1, duo: 2, trio: 3 };
 
 export interface Slot {
+  /** The area this screen may occupy (its column). Tilted screens are scaled to stay inside it. */
+  cell: Rect;
   /** The whole window or device, centred in its cell. */
   frame: Rect;
   /** The screen area, where the screenshot goes. Screenshot layers are relative to this. */
@@ -66,7 +68,7 @@ function slotFor(doc: DesignDocument, cell: Rect, size: ImageSize): Slot {
     const spec = DEVICES[style];
     const frame = fitAspect(cell, spec.aspect);
     const screen = spec.screen(frame);
-    return { frame, content: screen.rect, contentRadius: screen.radius };
+    return { cell, frame, content: screen.rect, contentRadius: screen.radius };
   }
   // Windows hug the screenshot's aspect ratio, plus the title bar.
   const bar = FRAME_BAR_HEIGHT[style];
@@ -78,7 +80,7 @@ function slotFor(doc: DesignDocument, cell: Rect, size: ImageSize): Slot {
     w = Math.max(h - bar, 1) * aspect;
   }
   const frame: Rect = { x: cell.x + (cell.width - w) / 2, y: cell.y + (cell.height - h) / 2, width: w, height: h };
-  return { frame, content: { x: frame.x, y: frame.y + bar, width: frame.width, height: frame.height - bar }, contentRadius: 0 };
+  return { cell, frame, content: { x: frame.x, y: frame.y + bar, width: frame.width, height: frame.height - bar }, contentRadius: 0 };
 }
 
 /**

@@ -18,6 +18,7 @@ import {
   type HandleId,
   type Tool,
 } from "@/lib/render/geometry";
+import { isTilted } from "@/lib/render/perspective";
 import { renderDocument } from "@/lib/render/render";
 import { editorStore, screenImages, useEditor } from "./store";
 
@@ -65,7 +66,10 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
   const scale = avail.width > 0 ? Math.min(avail.width / doc.canvas.width, avail.height / doc.canvas.height) : 0;
   const width = doc.canvas.width * scale;
   const height = doc.canvas.height * scale;
+  const tilted = isTilted(doc.tilt);
   const selected = doc.layers.find((l) => l.id === selectedId);
+  // A tilted screen is drawn in 3D, so its screenshot effects can't be positioned with the mouse until it is flat again.
+  const selectedOnTiltedScreen = tilted && selected !== undefined && LAYER_SPACE[selected.type] === "shot";
 
   /** Screenshot sizes read from the store at call time, so event handlers never see a stale list. */
   function screenSizes() {
@@ -85,6 +89,7 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
     overlayRef.current!.setPointerCapture(e.pointerId);
 
     if (activeTool !== "select") {
+      if (tilted && LAYER_SPACE[activeTool] === "shot") return;
       const sz = screenSizes();
       const slot = LAYER_SPACE[activeTool] === "shot" ? slotAt(store.doc, sz, x) : 0;
       const n = toNormalized(spaceRect(store.doc, LAYER_SPACE[activeTool], sz, slot), x, y);
@@ -102,7 +107,9 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
         return;
       }
     }
-    const picked = pickLayer(store.doc, x, y, screenSizes());
+    // Effects on a tilted screen are not drawn where their flat geometry says, so they can't be picked.
+    const pickable = tilted ? { ...store.doc, layers: store.doc.layers.filter((l) => LAYER_SPACE[l.type] === "canvas") } : store.doc;
+    const picked = pickLayer(pickable, x, y, screenSizes());
     store.select(picked?.id ?? null);
     if (picked) {
       gesture.current = {
@@ -158,8 +165,8 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
     else store.setTool("select");
   }
 
-  const bounds = selected ? layerBoundsPx(selected, layerRect(doc, selected, sizes)) : undefined;
-  const handles = selected ? layerHandles(selected, layerRect(doc, selected, sizes)) : [];
+  const bounds = selected && !selectedOnTiltedScreen ? layerBoundsPx(selected, layerRect(doc, selected, sizes)) : undefined;
+  const handles = selected && !selectedOnTiltedScreen ? layerHandles(selected, layerRect(doc, selected, sizes)) : [];
   const hs = 12 / (scale || 1);
 
   return (
@@ -172,6 +179,11 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
           data-testid="editor-canvas"
           className="block size-full rounded-lg shadow-2xl"
         />
+        {tilted && tool !== "select" && LAYER_SPACE[tool] === "shot" && (
+          <div role="status" className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 rounded-md bg-black/70 px-3 py-1 text-xs text-white">
+            Set Perspective to Flat to place this effect
+          </div>
+        )}
         <div
           ref={overlayRef}
           data-testid="stage-overlay"

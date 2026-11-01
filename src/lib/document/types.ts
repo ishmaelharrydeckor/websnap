@@ -7,6 +7,13 @@ export type FrameStyle = "none" | WindowFrameStyle | DeviceFrameStyle;
 /** How many screens share the canvas. Screens are filled from the media list in order. */
 export type LayoutKind = "single" | "duo" | "trio";
 
+/** 3D rotation of each screen, in degrees: pitch (x), yaw (y) and roll (z). All zero means flat. */
+export interface Tilt {
+  x: number;
+  y: number;
+  z: number;
+}
+
 export type ShadowMode = "none" | "spread" | "hug" | "adaptive";
 
 export interface MeshBlob {
@@ -111,6 +118,7 @@ export interface DesignDocument {
   background: Background;
   frame: { style: FrameStyle; dark: boolean; url: string };
   layout: { kind: LayoutKind };
+  tilt: Tilt;
   shot: ShotSettings;
   headline: HeadlineSettings;
   watermark: WatermarkSettings;

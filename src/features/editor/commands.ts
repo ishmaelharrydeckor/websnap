@@ -3,7 +3,10 @@ import { applyTemplate, TEMPLATES } from "@/lib/assets/templates";
 import { applyBrand } from "@/lib/brand/brand";
 import { EXPORT_FORMATS, type ExportFormat } from "@/lib/export/exporter";
 import type { FrameStyle } from "@/lib/document/types";
+import { DEVICE_LIST } from "@/lib/assets/devices";
 import { TOOLS } from "@/lib/render/geometry";
+import { TILT_PRESETS } from "@/lib/render/perspective";
+import type { LayoutKind, ShadowMode } from "@/lib/document/types";
 import { editorStore } from "./store";
 
 export interface Command {
@@ -137,6 +140,24 @@ export function buildCommands(ctx: CommandContext): Command[] {
 
   for (const [style, label] of FRAMES) {
     cmds.push({ id: `frame-${style}`, group: "Style", label: `Frame: ${label}`, run: () => store().update((d) => void (d.frame.style = style)) });
+  }
+
+  for (const dv of DEVICE_LIST) {
+    cmds.push({ id: `device-${dv.id}`, group: "Style", label: `Device: ${dv.label}`, keywords: "mockup frame", run: () => store().update((d) => void (d.frame.style = dv.id)) });
+  }
+
+  const layouts: [LayoutKind, string][] = [["single", "1 screen"], ["duo", "2 screens"], ["trio", "3 screens"]];
+  for (const [kind, label] of layouts) {
+    cmds.push({ id: `layout-${kind}`, group: "Layout", label: `Layout: ${label}`, keywords: "multiple devices compare", run: () => store().update((d) => void (d.layout.kind = kind)) });
+  }
+
+  for (const p of TILT_PRESETS) {
+    cmds.push({ id: `tilt-${p.id}`, group: "Style", label: `Perspective: ${p.label}`, keywords: "tilt 3d rotate", run: () => store().update((d) => void (d.tilt = { ...p.tilt })) });
+  }
+
+  const shadows: [ShadowMode, string][] = [["none", "None"], ["spread", "Spread"], ["hug", "Hug"], ["adaptive", "Adaptive"]];
+  for (const [mode, label] of shadows) {
+    cmds.push({ id: `shadow-${mode}`, group: "Style", label: `Shadow: ${label}`, run: () => store().update((d) => void (d.shot.shadowMode = mode)) });
   }
 
   for (const t of TOOLS) {

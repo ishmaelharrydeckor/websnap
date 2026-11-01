@@ -2,10 +2,11 @@ import { DEVICES, isDeviceFrame } from "../assets/devices";
 import { fontStack } from "../assets/fonts";
 import { getWallpaper } from "../assets/wallpapers";
 import type { Background, DesignDocument, Layer } from "../document/types";
-import { averageColor, mix, withAlpha } from "./color";
+import { averageColor, makeCanvas, mix, withAlpha } from "./color";
 import { LAYER_SPACE } from "./geometry";
 import { drawCanvasLayer, drawShotLayer, type RenderableImage } from "./layers";
 import { computeLayout, coverRect, FRAME_BAR_HEIGHT, slotOfLayer, type Rect, type Slot } from "./layout";
+import { drawProjected, fitScale, isTilted, projectedQuad, renderToOffscreen } from "./perspective";
 
 export type { RenderableImage };
 
@@ -176,31 +177,50 @@ function drawPlaceholder(ctx: CanvasRenderingContext2D, doc: DesignDocument, con
   ctx.fillText("a screenshot", cx, cy + size * 0.7);
 }
 
-function drawSlot(
+/** Adds the outline of a window or device to the current path. */
+function outlinePath(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot) {
+  const style = doc.frame.style;
+  if (isDeviceFrame(style)) {
+    ctx.beginPath();
+    DEVICES[style].outline(ctx, slot.frame);
+  } else {
+    roundedRectPath(ctx, slot.frame, doc.shot.radius);
+  }
+}
+
+/** The fill used under the screen, which also colours the shadow's caster. */
+const bodyColor = (doc: DesignDocument) => (doc.frame.dark ? "#1c1c1f" : "#ffffff");
+
+/**
+ * The shadow cast by a flat screen, or by a tilted one when `silhouette` (its projected outline, as a
+ * canvas-sized image) is given. Using the real outline keeps rounded corners and device shapes in the shadow.
+ */
+function drawShadow(
   ctx: CanvasRenderingContext2D,
   doc: DesignDocument,
   slot: Slot,
   screen: RenderableImage | undefined,
-  shotLayers: Layer[],
+  silhouette?: CanvasImageSource,
 ) {
+  ctx.save();
+  if (applyShadow(ctx, doc, screen)) {
+    if (silhouette) {
+      ctx.drawImage(silhouette, 0, 0, doc.canvas.width, doc.canvas.height);
+    } else {
+      outlinePath(ctx, doc, slot);
+      ctx.fillStyle = bodyColor(doc);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+/** The window or device itself with its screenshot and effects, but no shadow. */
+function drawCard(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot, screen: RenderableImage | undefined, shotLayers: Layer[]) {
   const { frame, content } = slot;
   const style = doc.frame.style;
   const device = isDeviceFrame(style) ? DEVICES[style] : undefined;
   const bar = FRAME_BAR_HEIGHT[style];
-
-  // Shadow cast by the whole window or device.
-  ctx.save();
-  if (applyShadow(ctx, doc, screen)) {
-    if (device) {
-      ctx.beginPath();
-      device.outline(ctx, frame);
-    } else {
-      roundedRectPath(ctx, frame, doc.shot.radius);
-    }
-    ctx.fillStyle = doc.frame.dark ? "#1c1c1f" : "#ffffff";
-    ctx.fill();
-  }
-  ctx.restore();
 
   // Where the whole image lands: stretched into windows (which match its aspect), cover-fitted into device screens.
   const imageRect = screen && device ? coverRect(content, screen) : content;
@@ -233,6 +253,37 @@ function drawSlot(
     device.drawOverlay(ctx, frame, doc.frame.dark);
     ctx.restore();
   }
+}
+
+function drawSlot(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot, screen: RenderableImage | undefined, shotLayers: Layer[]) {
+  if (!isTilted(doc.tilt)) {
+    drawShadow(ctx, doc, slot, screen);
+    drawCard(ctx, doc, slot, screen, shotLayers);
+    return;
+  }
+  // Tilted: render the card flat offscreen (at output resolution), then project it with perspective.
+  const pixelScale = ctx.getTransform().a || 1;
+  const card = renderToOffscreen(slot.frame, pixelScale, (octx) => drawCard(octx, doc, slot, screen, shotLayers));
+  const k = fitScale(projectedQuad(slot.frame, doc.tilt), slot.cell);
+
+  if (applyShadowEnabled(doc)) {
+    // Project just the outline so the shadow has the device's real shape, then cast the shadow from that image.
+    const outline = renderToOffscreen(slot.frame, pixelScale, (octx) => {
+      outlinePath(octx, doc, slot);
+      octx.fillStyle = bodyColor(doc);
+      octx.fill();
+    });
+    const layer = makeCanvas(Math.ceil(doc.canvas.width * pixelScale), Math.ceil(doc.canvas.height * pixelScale));
+    const lctx = layer.getContext("2d") as CanvasRenderingContext2D;
+    lctx.scale(pixelScale, pixelScale);
+    drawProjected(lctx, outline, slot.frame, doc.tilt, k);
+    drawShadow(ctx, doc, slot, screen, layer);
+  }
+  drawProjected(ctx, card, slot.frame, doc.tilt, k);
+}
+
+function applyShadowEnabled(doc: DesignDocument): boolean {
+  return doc.shot.shadowMode !== "none" && doc.shot.shadow > 0;
 }
 
 /** Draws a document onto a canvas context sized to doc.canvas. Used for preview and export. */

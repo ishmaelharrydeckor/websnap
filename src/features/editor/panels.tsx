@@ -9,6 +9,7 @@ import { DEVICE_LIST, isDeviceFrame } from "@/lib/assets/devices";
 import { buildMesh, extractPalette, meshPalette } from "@/lib/assets/magic";
 import type { FrameStyle, LayoutKind, ShadowMode } from "@/lib/document/types";
 import { samplePixels } from "@/lib/render/color";
+import { isTilted, TILT_PRESETS } from "@/lib/render/perspective";
 import { SLOT_COUNT } from "@/lib/render/layout";
 import type { PanelProps } from "./panelTypes";
 import { Section, Segmented, Slider, TextField, Toggle } from "./controls";
@@ -201,6 +202,35 @@ const SHADOWS: { id: ShadowMode; label: string }[] = [
   { id: "adaptive", label: "Adaptive" },
 ];
 
+function TiltSection() {
+  const tilt = useEditor((s) => s.doc.tilt);
+  const active = TILT_PRESETS.find((p) => p.tilt.x === tilt.x && p.tilt.y === tilt.y && p.tilt.z === tilt.z)?.id;
+  const set = (axis: "x" | "y" | "z", v: number) => update((d) => void (d.tilt[axis] = v), `tilt-${axis}`);
+  return (
+    <Section title="Perspective">
+      <div className="grid grid-cols-5 gap-1">
+        {TILT_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            aria-pressed={active === p.id}
+            onClick={() => update((d) => void (d.tilt = { ...p.tilt }))}
+            className={`rounded-md border px-1 py-1.5 text-xs transition ${
+              active === p.id ? "border-orange-500 bg-orange-500/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <Slider label="Pitch" value={tilt.x} min={-70} max={70} format={(v) => `${v}°`} onChange={(v) => set("x", v)} />
+      <Slider label="Yaw" value={tilt.y} min={-70} max={70} format={(v) => `${v}°`} onChange={(v) => set("y", v)} />
+      <Slider label="Roll" value={tilt.z} min={-60} max={60} format={(v) => `${v}°`} onChange={(v) => set("z", v)} />
+      {isTilted(tilt) && <p className="text-xs text-neutral-500">Blur, pixelate and other screenshot effects are edited with the screen flat.</p>}
+    </Section>
+  );
+}
+
 function ScreensSection({ actions }: PanelProps) {
   const count = useEditor((s) => SLOT_COUNT[s.doc.layout.kind]);
   const media = useEditor((s) => s.doc.media);
@@ -282,6 +312,7 @@ export function StylePanel({ actions }: PanelProps) {
           <Slider label="Corner radius" value={shot.radius} min={0} max={60} onChange={(v) => update((d) => void (d.shot.radius = v), "radius")} />
         )}
       </Section>
+      <TiltSection />
       <Section title="Shadow">
         <Segmented label="Shadow style" value={shot.shadowMode} options={SHADOWS} onChange={(m) => update((d) => void (d.shot.shadowMode = m))} />
         {shot.shadowMode !== "none" && (

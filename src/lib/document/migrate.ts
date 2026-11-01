@@ -14,6 +14,7 @@ export function normalizeDocument(saved: Partial<DesignDocument>): DesignDocumen
     canvas: { ...d.canvas, ...saved.canvas },
     frame: { ...d.frame, ...saved.frame },
     layout: { ...d.layout, ...saved.layout },
+    tilt: { ...d.tilt, ...saved.tilt },
     shot: { ...d.shot, ...saved.shot },
     headline: { ...d.headline, ...saved.headline },
     watermark: { ...d.watermark, ...saved.watermark },

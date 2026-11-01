@@ -16,6 +16,7 @@ export function createDefaultDocument(): DesignDocument {
     },
     frame: { style: "browser", dark: false, url: "yourproduct.com" },
     layout: { kind: "single" },
+    tilt: { x: 0, y: 0, z: 0 },
     shot: { padding: 0.09, radius: 14, shadow: 55, shadowMode: "spread" },
     headline: {
       show: false,

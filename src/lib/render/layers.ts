@@ -1,5 +1,5 @@
 import type { Layer } from "../document/types";
-import { withAlpha } from "./color";
+import { makeCanvas, withAlpha } from "./color";
 import { layerBoundsPx, STEP_RADIUS } from "./geometry";
 import type { Rect } from "./layout";
 
@@ -9,16 +9,6 @@ export type RenderableImage = CanvasImageSource & { width: number; height: numbe
 export interface ShotSource {
   image: RenderableImage;
   rect: Rect;
-}
-
-type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
-
-function makeCanvas(w: number, h: number): AnyCanvas {
-  if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(w, h);
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  return c;
 }
 
 function roundedRect(ctx: CanvasRenderingContext2D, r: Rect, radius: number) {

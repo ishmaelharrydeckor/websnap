@@ -98,9 +98,14 @@ Deferred: snapping/alignment guides, multi-select, drag-to-reorder layers, dupli
 text editing directly on the canvas (text is edited in the inspector), Split/Compare/iPhone/
 MacBook templates (they need multi-image layouts and device frames from Phase 3).
 
-### Phase 3: Mockups
-Device registry (iPhone, iPad, MacBook, browser), multi-device layouts, perspective/tilt,
-adaptive shadow, palette-based magic background, more wallpaper packs, multi-size ZIP.
+### Phase 3: Mockups (in progress)
+Done: code-drawn device registry (iPhone, Android, iPad, MacBook, monitor); 1/2/3-screen layouts
+with per-screen images; 3D perspective/tilt (Flat, Left, Right, Lean, Iso + sliders) via mesh
+projection; shadow modes (none/spread/hug/adaptive); palette-based magic background with shuffle;
+8 more wallpapers; 5 new templates (iPhone, MacBook, Compare, Showcase, Isometric).
+Remaining: multi-size ZIP export.
+Known limit: screenshot effects (blur, pixelate, ...) can't be positioned while a screen is tilted;
+set Perspective to Flat to edit them (they still render tilted).
 
 ### Phase 4: Video and animation
 Screen recording; timeline editor (playhead, play/loop, media filmstrip track,
@@ -113,8 +118,8 @@ effects (noise/VHS/glitch), 3D scenes, desktop/extension wrappers.
 
 ## Templates
 Templates are JSON documents in our own model that keep the user's content when swapped.
-Shipped in Phase 2 (style-only): Hero, Spotlight, Clean, Bold, Minimal, Soft, Ocean, Studio.
-Still to design (need Phase 3 features): Split, Compare, iPhone, MacBook, Card.
+Shipped: Hero, Spotlight, Clean, Bold, Minimal, Soft, Ocean, Studio (Phase 2); iPhone, MacBook,
+Compare, Showcase, Isometric (Phase 3). Still to design: Split, Card.
 Each social size gets its own layout rather than a stretched one.
 
 Inspiration sources (ideas only, never copied assets):

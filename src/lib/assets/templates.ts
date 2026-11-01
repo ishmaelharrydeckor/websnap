@@ -1,4 +1,5 @@
-import type { Background, DesignDocument, FrameStyle, ShadowMode } from "../document/types";
+import type { Background, DesignDocument, FrameStyle, LayoutKind, ShadowMode, Tilt } from "../document/types";
+import { FLAT, TILT_PRESETS } from "../render/perspective";
 import { GRADIENT_PRESETS } from "./backgrounds";
 
 export interface Template {
@@ -8,7 +9,13 @@ export interface Template {
   frame: { style: FrameStyle; dark: boolean };
   shot: { padding: number; radius: number; shadow: number; shadowMode: ShadowMode };
   headline: { show: boolean; position: "top" | "bottom"; align: "left" | "center"; size: number; color: string };
+  /** Number of screens. Defaults to a single screen. */
+  layout?: LayoutKind;
+  /** 3D tilt of each screen. Defaults to flat. */
+  tilt?: Tilt;
 }
+
+const tiltPreset = (id: string): Tilt => TILT_PRESETS.find((p) => p.id === id)!.tilt;
 
 const gradient = (id: string): Background => {
   const p = GRADIENT_PRESETS.find((g) => g.id === id)!;
@@ -81,13 +88,59 @@ export const TEMPLATES: Template[] = [
     shot: { padding: 0.07, radius: 14, shadow: 85, shadowMode: "spread" },
     headline: { show: false, position: "top", align: "center", size: 56, color: "#ffffff" },
   },
+  {
+    id: "iphone",
+    name: "iPhone",
+    background: { kind: "wallpaper", id: "mystic" },
+    frame: { style: "iphone", dark: false },
+    shot: { padding: 0.06, radius: 14, shadow: 60, shadowMode: "adaptive" },
+    headline: { show: true, position: "top", align: "center", size: 56, color: "#ffffff" },
+  },
+  {
+    id: "macbook",
+    name: "MacBook",
+    background: gradient("lavender"),
+    frame: { style: "macbook", dark: false },
+    shot: { padding: 0.07, radius: 14, shadow: 55, shadowMode: "spread" },
+    headline: { show: true, position: "top", align: "center", size: 56, color: "#2b1d4a" },
+  },
+  {
+    id: "compare",
+    name: "Compare",
+    background: gradient("mint"),
+    frame: { style: "browser", dark: false },
+    shot: { padding: 0.07, radius: 12, shadow: 45, shadowMode: "spread" },
+    headline: { show: true, position: "top", align: "center", size: 52, color: "#10321c" },
+    layout: "duo",
+  },
+  {
+    id: "showcase",
+    name: "Showcase",
+    background: { kind: "wallpaper", id: "cosmic" },
+    frame: { style: "iphone", dark: true },
+    shot: { padding: 0.06, radius: 14, shadow: 70, shadowMode: "adaptive" },
+    headline: { show: true, position: "top", align: "center", size: 56, color: "#ffffff" },
+    layout: "trio",
+    tilt: tiltPreset("lean"),
+  },
+  {
+    id: "isometric",
+    name: "Isometric",
+    background: { kind: "wallpaper", id: "pacific-waves" },
+    frame: { style: "macbook", dark: true },
+    shot: { padding: 0.04, radius: 14, shadow: 60, shadowMode: "spread" },
+    headline: { show: false, position: "top", align: "center", size: 56, color: "#ffffff" },
+    tilt: tiltPreset("iso"),
+  },
 ];
 
-/** Applies a template to a (draft) document. Keeps the screenshot, layers, text, address, watermark and canvas size. */
+/** Applies a template to a (draft) document. Keeps the screenshots, layers, text, address, watermark and canvas size. Layout and tilt are set by the template. */
 export function applyTemplate(doc: DesignDocument, template: Template) {
   const t = structuredClone(template);
   doc.background = t.background;
   doc.frame = { ...doc.frame, ...t.frame };
   doc.shot = t.shot;
   doc.headline = { ...doc.headline, ...t.headline };
+  doc.layout = { kind: t.layout ?? "single" };
+  doc.tilt = t.tilt ?? { ...FLAT };
 }

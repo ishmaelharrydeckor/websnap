@@ -30,6 +30,24 @@ describe("templates", () => {
     expect(doc.shot.radius).toBe(28);
   });
 
+  it("device and multi-screen templates set the layout and tilt, and others reset them", () => {
+    const doc = createDefaultDocument();
+    applyTemplate(doc, TEMPLATES.find((t) => t.id === "showcase")!);
+    expect(doc.layout.kind).toBe("trio");
+    expect(doc.frame.style).toBe("iphone");
+    expect(doc.tilt).not.toEqual({ x: 0, y: 0, z: 0 });
+    applyTemplate(doc, TEMPLATES.find((t) => t.id === "hero")!);
+    expect(doc.layout.kind).toBe("single");
+    expect(doc.tilt).toEqual({ x: 0, y: 0, z: 0 });
+  });
+
+  it("keeps every screenshot when the layout changes", () => {
+    const doc = createDefaultDocument();
+    doc.media = [1, 2, 3].map((n) => ({ id: `m${n}`, kind: "image" as const, assetId: `m${n}`, width: 10, height: 10 }));
+    applyTemplate(doc, TEMPLATES.find((t) => t.id === "hero")!);
+    expect(doc.media).toHaveLength(3); // extra screens are hidden, not deleted
+  });
+
   it("does not share objects with the template (editing the doc must not change the template)", () => {
     const doc = createDefaultDocument();
     const tpl = TEMPLATES[0];
