@@ -98,14 +98,19 @@ Deferred: snapping/alignment guides, multi-select, drag-to-reorder layers, dupli
 text editing directly on the canvas (text is edited in the inspector), Split/Compare/iPhone/
 MacBook templates (they need multi-image layouts and device frames from Phase 3).
 
-### Phase 3: Mockups (in progress)
+### Phase 3: Mockups (done)
 Done: code-drawn device registry (iPhone, Android, iPad, MacBook, monitor); 1/2/3-screen layouts
 with per-screen images; 3D perspective/tilt (Flat, Left, Right, Lean, Iso + sliders) via mesh
 projection; shadow modes (none/spread/hug/adaptive); palette-based magic background with shuffle;
 8 more wallpapers; 5 new templates (iPhone, MacBook, Compare, Showcase, Isometric).
-Remaining: multi-size ZIP export.
-Known limit: screenshot effects (blur, pixelate, ...) can't be positioned while a screen is tilted;
-set Perspective to Flat to edit them (they still render tilted).
+Multi-size ZIP export: pick sizes, each is re-laid out (not stretched) with pixel sizes scaled
+proportionally; stored (uncompressed) ZIP written in-browser.
+Known limits:
+- Screenshot effects (blur, pixelate, ...) can't be positioned while a screen is tilted; set
+  Perspective to Flat to edit them (they still render tilted).
+- Shapes, arrows and text are positioned relative to the canvas, so in other export sizes they do
+  not stay attached to the same spot on the screenshot (only screenshot effects follow it).
+  Idea for later: anchor canvas layers to a screen.
 
 ### Phase 4: Video and animation
 Screen recording; timeline editor (playhead, play/loop, media filmstrip track,

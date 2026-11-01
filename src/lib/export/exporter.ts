@@ -1,5 +1,8 @@
+import type { SizePreset } from "../assets/sizes";
 import type { DesignDocument } from "../document/types";
 import { renderDocument, type RenderInput } from "../render/render";
+import { scaleDocumentToSize } from "./sizes";
+import { createZip } from "./zip";
 
 export type ExportFormat = "png" | "jpeg" | "webp";
 
@@ -55,4 +58,27 @@ export function downloadBlob(blob: Blob, fileName: string) {
 export async function copyPng(doc: DesignDocument, input: RenderInput, scale = 1) {
   const blob = await exportBlob(doc, input, { format: "png", scale });
   await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+}
+
+export interface ExportAllOptions {
+  format: ExportFormat;
+  scale: number;
+  onProgress?: (done: number, total: number) => void;
+}
+
+/**
+ * Renders the design at each preset size and bundles the images into one ZIP. Each size is re-laid out
+ * (screens, headline and annotations re-flow), not stretched.
+ */
+export async function exportAllSizes(doc: DesignDocument, input: RenderInput, presets: SizePreset[], opts: ExportAllOptions): Promise<Blob> {
+  const entries: { name: string; data: Uint8Array }[] = [];
+  const ext = formatInfo(opts.format).ext;
+  for (const [i, preset] of presets.entries()) {
+    const blob = await exportBlob(scaleDocumentToSize(doc, preset), input, { format: opts.format, scale: opts.scale });
+    entries.push({ name: `websnap-${preset.id}.${ext}`, data: new Uint8Array(await blob.arrayBuffer()) });
+    opts.onProgress?.(i + 1, presets.length);
+    // Let the page paint progress between sizes.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return new Blob([createZip(entries) as BlobPart], { type: "application/zip" });
 }

@@ -121,8 +121,9 @@ function drawHeadline(ctx: CanvasRenderingContext2D, doc: DesignDocument, band: 
 function drawWatermark(ctx: CanvasRenderingContext2D, doc: DesignDocument) {
   const { width: cw, height: ch } = doc.canvas;
   const margin = Math.min(cw, ch) * 0.035;
+  const unit = Math.min(cw, ch) / 900; // 22px on the default 900px-tall canvas, proportional elsewhere
   ctx.save();
-  ctx.font = `600 22px ${fontStack(doc.font)}`;
+  ctx.font = `600 ${22 * unit}px ${fontStack(doc.font)}`;
   ctx.fillStyle = "rgba(255,255,255,0.8)";
   ctx.shadowColor = "rgba(0,0,0,0.35)";
   ctx.shadowBlur = 6;

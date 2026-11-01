@@ -6,6 +6,7 @@ import { copyPng, downloadBlob, EXPORT_FORMATS, exportBlob, exportFileName, type
 import { TOOLS, translateLayer } from "@/lib/render/geometry";
 import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
 import { CommandPalette } from "./CommandPalette";
+import { ExportAllDialog } from "./ExportAllDialog";
 import { buildCommands, type Command } from "./commands";
 import { InsertPanel, LayersPanel } from "./layerPanels";
 import { BackgroundPanel, CanvasPanel, StylePanel, TextPanel } from "./panels";
@@ -35,6 +36,7 @@ export function Editor() {
   const [scale, setScale] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [exportAllOpen, setExportAllOpen] = useState(false);
   // Commands are built when the palette opens, so they always use the current handlers and export settings.
   const [commands, setCommands] = useState<Command[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -159,6 +161,7 @@ export function Editor() {
             addImage: () => layerFileInput.current?.click(),
             download: () => void onExport(),
             copy: () => void onCopy(),
+            exportAll: () => setExportAllOpen(true),
             setFormat,
             setScale,
           }),
@@ -276,6 +279,9 @@ export function Editor() {
           <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={onCopy}>
             Copy
           </button>
+          <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => setExportAllOpen(true)}>
+            All sizes
+          </button>
           <button type="button" className={`${btn} bg-orange-500 text-white hover:bg-orange-400`} onClick={onExport}>
             Download
           </button>
@@ -338,6 +344,7 @@ export function Editor() {
           )}
         </main>
       </div>
+      {exportAllOpen && <ExportAllDialog format={format} scale={scale} onClose={() => setExportAllOpen(false)} onDone={notify} />}
       {commands && <CommandPalette commands={commands} onClose={() => setCommands(null)} />}
     </div>
   );

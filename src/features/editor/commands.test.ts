@@ -9,6 +9,7 @@ const ctx = () => ({
   addImage: vi.fn(),
   download: vi.fn(),
   copy: vi.fn(),
+  exportAll: vi.fn(),
   setFormat: vi.fn(),
   setScale: vi.fn(),
 });

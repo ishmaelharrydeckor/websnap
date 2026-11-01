@@ -29,6 +29,7 @@ export interface CommandContext {
   addImage: () => void;
   download: () => void;
   copy: () => void;
+  exportAll: () => void;
   setFormat: (f: ExportFormat) => void;
   setScale: (s: number) => void;
 }
@@ -59,6 +60,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
     { id: "add-image", group: "File", label: "Add image layer", keywords: "logo photo insert", run: ctx.addImage },
     { id: "download", group: "File", label: "Download image", keywords: "export save", run: ctx.download },
     { id: "copy", group: "File", label: "Copy image to clipboard", keywords: "export", run: ctx.copy },
+    { id: "export-all", group: "File", label: "Export all sizes (ZIP)", keywords: "download batch multiple social presets", run: ctx.exportAll },
     { id: "undo", group: "Edit", label: "Undo", hint: "Ctrl/⌘ Z", run: () => store().undo() },
     { id: "redo", group: "Edit", label: "Redo", hint: "Ctrl/⌘ Shift Z", run: () => store().redo() },
     {
