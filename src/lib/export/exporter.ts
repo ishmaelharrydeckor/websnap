@@ -24,7 +24,7 @@ export function exportFileName(doc: DesignDocument, format: ExportFormat): strin
 export async function exportBlob(
   doc: DesignDocument,
   input: RenderInput,
-  opts: { format: ExportFormat; scale: number; quality?: number },
+  opts: { format: ExportFormat; scale: number; quality?: number; /** Timeline time to draw (seconds). Defaults to the start. */ time?: number },
 ): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(doc.canvas.width * opts.scale);
@@ -32,7 +32,7 @@ export async function exportBlob(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not supported in this browser");
   ctx.scale(opts.scale, opts.scale);
-  renderDocument(ctx, doc, input);
+  renderDocument(ctx, doc, input, opts.time ?? 0);
   const { mime } = formatInfo(opts.format);
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -55,14 +55,16 @@ export function downloadBlob(blob: Blob, fileName: string) {
 }
 
 /** Copies a PNG render to the clipboard. Browsers only accept PNG for images. */
-export async function copyPng(doc: DesignDocument, input: RenderInput, scale = 1) {
-  const blob = await exportBlob(doc, input, { format: "png", scale });
+export async function copyPng(doc: DesignDocument, input: RenderInput, scale = 1, time = 0) {
+  const blob = await exportBlob(doc, input, { format: "png", scale, time });
   await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
 }
 
 export interface ExportAllOptions {
   format: ExportFormat;
   scale: number;
+  /** Timeline time to draw each size at (seconds). */
+  time?: number;
   onProgress?: (done: number, total: number) => void;
 }
 
@@ -74,7 +76,7 @@ export async function exportAllSizes(doc: DesignDocument, input: RenderInput, pr
   const entries: { name: string; data: Uint8Array }[] = [];
   const ext = formatInfo(opts.format).ext;
   for (const [i, preset] of presets.entries()) {
-    const blob = await exportBlob(scaleDocumentToSize(doc, preset), input, { format: opts.format, scale: opts.scale });
+    const blob = await exportBlob(scaleDocumentToSize(doc, preset), input, { format: opts.format, scale: opts.scale, time: opts.time });
     entries.push({ name: `websnap-${preset.id}.${ext}`, data: new Uint8Array(await blob.arrayBuffer()) });
     opts.onProgress?.(i + 1, presets.length);
     // Let the page paint progress between sizes.

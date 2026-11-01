@@ -4,8 +4,9 @@ import { EMPTY_BRAND, type Brand } from "../brand/brand";
 import type { DesignDocument, Layer, MediaItem } from "../document/types";
 import type { Tool } from "../render/geometry";
 import { SLOT_COUNT } from "../render/layout";
+import { defaultClip, fitClips } from "../timeline/animation";
 import { timelineDuration, wholeVideo } from "../timeline/segments";
-import type { Segment } from "../document/types";
+import type { AnimationClip, Segment } from "../document/types";
 import type { RenderableImage } from "../render/render";
 
 const HISTORY_LIMIT = 100;
@@ -33,6 +34,8 @@ export interface UiState {
   timelineOpen: boolean;
   /** The cut selected in the timeline, by index. */
   selectedSegment: number | null;
+  /** The animation clip selected in the timeline. */
+  selectedClip: string | null;
 }
 
 /** Where the preview is on the timeline. Not part of the document or its undo history. */
@@ -69,6 +72,11 @@ export interface EditorState {
   setPlaying: (playing: boolean) => void;
   setTimelineOpen: (open: boolean) => void;
   selectSegment: (index: number | null) => void;
+  selectClip: (id: string | null) => void;
+  /** Adds an animation clip at `at` seconds and selects it. */
+  addClip: (type: AnimationClip["type"], at: number) => void;
+  updateClip: (id: string, recipe: (clip: AnimationClip) => AnimationClip, coalesceKey?: string) => void;
+  removeClip: (id: string) => void;
   /**
    * Edits the first screen's cuts as one undo step. The timeline length follows the result, and the playhead and
    * selection are kept inside it. A recipe that returns its input unchanged records nothing.
@@ -97,7 +105,7 @@ export function createEditorStore() {
 
   return createStore<EditorState>()((set, get) => ({
     doc: createDefaultDocument(),
-    ui: { tool: "select", selectedId: null, timelineOpen: false, selectedSegment: null },
+    ui: { tool: "select", selectedId: null, timelineOpen: false, selectedSegment: null, selectedClip: null },
     playback: { time: 0, playing: false },
     brand: EMPTY_BRAND,
     past: [],
@@ -152,7 +160,33 @@ export function createEditorStore() {
 
     setPlaying: (playing) => set((s) => ({ playback: { ...s.playback, playing } })),
 
-    selectSegment: (index) => set((s) => ({ ui: { ...s.ui, selectedSegment: index } })),
+    selectClip: (id) => set((s) => ({ ui: { ...s.ui, selectedClip: id, selectedSegment: id === null ? s.ui.selectedSegment : null } })),
+
+    addClip: (type, at) => {
+      const clip = defaultClip(type, at, get().doc.timeline.duration, crypto.randomUUID());
+      lastKey = undefined;
+      get().update((d) => {
+        d.timeline.clips.push(clip);
+      });
+      set((s) => ({ ui: { ...s.ui, selectedClip: clip.id, selectedSegment: null } }));
+    },
+
+    updateClip: (id, recipe, coalesceKey) => {
+      get().update((d) => {
+        const i = d.timeline.clips.findIndex((c) => c.id === id);
+        if (i >= 0) d.timeline.clips[i] = recipe(d.timeline.clips[i]);
+      }, coalesceKey);
+    },
+
+    removeClip: (id) => {
+      lastKey = undefined;
+      get().update((d) => {
+        d.timeline.clips = d.timeline.clips.filter((c) => c.id !== id);
+      });
+      set((s) => (s.ui.selectedClip === id ? { ui: { ...s.ui, selectedClip: null } } : {}));
+    },
+
+    selectSegment: (index) => set((s) => ({ ui: { ...s.ui, selectedSegment: index, selectedClip: index === null ? s.ui.selectedClip : null } })),
 
     editSegments: (recipe, coalesceKey) => {
       const current = get().doc.timeline.segments;
@@ -161,6 +195,7 @@ export function createEditorStore() {
       get().update((d) => {
         d.timeline.segments = structuredClone(next);
         if (next.length > 0) d.timeline.duration = timelineDuration(next);
+        d.timeline.clips = fitClips(d.timeline.clips, d.timeline.duration);
       }, coalesceKey);
       set((s) => ({
         playback: { ...s.playback, time: Math.min(s.playback.time, s.doc.timeline.duration) },

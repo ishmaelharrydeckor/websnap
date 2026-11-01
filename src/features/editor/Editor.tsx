@@ -119,6 +119,9 @@ export function Editor() {
       } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
         e.preventDefault();
         store.removeLayer(selectedId);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && store.ui.selectedClip !== null) {
+        e.preventDefault();
+        store.removeClip(store.ui.selectedClip);
       } else if ((e.key === "Delete" || e.key === "Backspace") && store.ui.selectedSegment !== null) {
         e.preventDefault();
         const index = store.ui.selectedSegment;
@@ -177,7 +180,7 @@ export function Editor() {
   async function onExport() {
     const state = editorStore.getState();
     try {
-      const blob = await exportBlob(state.doc, renderInputFor(state), { format, scale });
+      const blob = await exportBlob(state.doc, renderInputFor(state), { format, scale, time: state.playback.time });
       downloadBlob(blob, exportFileName(state.doc, format));
     } catch {
       notify("Export failed.");
@@ -187,7 +190,7 @@ export function Editor() {
   async function onCopy() {
     const state = editorStore.getState();
     try {
-      await copyPng(state.doc, renderInputFor(state), scale);
+      await copyPng(state.doc, renderInputFor(state), scale, state.playback.time);
       notify("Copied to clipboard");
     } catch {
       notify("Copy isn't available here. Use Download instead.");

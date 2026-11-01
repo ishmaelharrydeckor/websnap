@@ -21,6 +21,7 @@ import {
   type Tool,
 } from "@/lib/render/geometry";
 import type { Point } from "@/lib/render/perspective";
+import { documentAt, frameStateAt, isAtRest } from "@/lib/timeline/animation";
 import { renderDocument } from "@/lib/render/render";
 import { editorStore, screenImages, useEditor } from "./store";
 
@@ -80,7 +81,7 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
-    if (ctx) renderDocument(ctx, doc, { screens: screens.map((i) => i?.source), images, draft });
+    if (ctx) renderDocument(ctx, doc, { screens: screens.map((i) => i?.source), images, draft }, time);
     // `time` and `frame` aren't read here, but a new playhead position or decoded video frame means the picture changed.
   }, [doc, screens, images, draft, time, frame]);
 
@@ -88,6 +89,10 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
   const width = doc.canvas.width * scale;
   const height = doc.canvas.height * scale;
   const selected = doc.layers.find((l) => l.id === selectedId);
+  // Geometry follows the animated tilt. While the camera zooms or drifts the picture isn't where the static layout
+  // puts it, so mouse editing pauses until the playhead is clear of those animations.
+  const viewDoc = documentAt(doc, time);
+  const atRest = isAtRest(frameStateAt(doc, time));
 
   /** Screenshot sizes read from the store at call time, so event handlers never see a stale list. */
   function screenSizes() {
@@ -100,15 +105,21 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
     return { x: ((e.clientX - r.left) / r.width) * doc.canvas.width, y: ((e.clientY - r.top) / r.height) * doc.canvas.height };
   }
 
+  /** The document as drawn at the playhead (animated tilt applied), for hit-testing and coordinate conversion. */
+  function geometryDoc() {
+    const s = editorStore.getState();
+    return documentAt(s.doc, s.playback.time);
+  }
+
   /** A canvas-px point as 0-1 coordinates in a layer's own (flat, un-tilted) space. */
   function normalizedIn(spec: SpaceSpec, p: Point): [number, number] {
-    const info = layerSpaceInfo(editorStore.getState().doc, spec, screenSizes());
+    const info = layerSpaceInfo(geometryDoc(), spec, screenSizes());
     const flat = info.transform.inverse(p);
     return toNormalized(info.rect, flat.x, flat.y);
   }
 
   function onPointerDown(e: React.PointerEvent) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || !atRest) return;
     const p = toCanvas(e);
     const store = editorStore.getState();
     const { tool: activeTool, selectedId: selId } = store.ui;
@@ -119,8 +130,8 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
       // Effects belong to the screen under the pointer; shapes attach to the screen they start on (if any).
       const spec: SpaceSpec =
         LAYER_SPACE[activeTool] === "shot"
-          ? { type: activeTool, slot: slotAtPoint(store.doc, sz, p) }
-          : { type: activeTool, anchor: canAnchor(activeTool) ? screenContaining(store.doc, sz, p) : undefined };
+          ? { type: activeTool, slot: slotAtPoint(geometryDoc(), sz, p) }
+          : { type: activeTool, anchor: canAnchor(activeTool) ? screenContaining(geometryDoc(), sz, p) : undefined };
       const n = normalizedIn(spec, p);
       gesture.current = { kind: "create", tool: activeTool, spec, start: n, path: [n] };
       return;
@@ -129,7 +140,7 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
     const stamp = ++gestureCount.current;
     const sel = store.doc.layers.find((l) => l.id === selId);
     if (sel) {
-      const info = layerSpaceInfo(store.doc, sel, screenSizes());
+      const info = layerSpaceInfo(geometryDoc(), sel, screenSizes());
       const hit = layerHandles(sel, info.rect).find((h) => {
         const onCanvas = info.transform.forward(h);
         return Math.hypot(onCanvas.x - p.x, onCanvas.y - p.y) <= HANDLE_HIT_PX / scale;
@@ -139,7 +150,7 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
         return;
       }
     }
-    const picked = pickLayer(store.doc, p.x, p.y, screenSizes());
+    const picked = pickLayer(geometryDoc(), p.x, p.y, screenSizes());
     store.select(picked?.id ?? null);
     if (picked) {
       gesture.current = { kind: "move", id: picked.id, last: normalizedIn(picked, p), key: `drag:move:${picked.id}:${stamp}` };
@@ -188,7 +199,7 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
   }
 
   // The selection outline and handles are drawn where the layer appears, so on a tilted screen they are tilted too.
-  const selInfo = selected ? layerSpaceInfo(doc, selected, sizes) : undefined;
+  const selInfo = selected && atRest ? layerSpaceInfo(viewDoc, selected, sizes) : undefined;
   const bounds = selected && selInfo ? layerBoundsPx(selected, selInfo.rect) : undefined;
   const outline =
     bounds && selInfo
@@ -212,6 +223,11 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
           data-testid="editor-canvas"
           className="block size-full rounded-lg shadow-2xl"
         />
+        {!atRest && (
+          <div role="status" className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 rounded-md bg-black/70 px-3 py-1 text-xs text-white">
+            Editing is paused while a zoom or drift is in view. Move the playhead past it to edit.
+          </div>
+        )}
         <div
           ref={overlayRef}
           data-testid="stage-overlay"
@@ -226,7 +242,7 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
             if (!file || !onDropFile) return; // let the page-level handler report non-images
             e.preventDefault();
             e.stopPropagation();
-            onDropFile(file, slotAtPoint(editorStore.getState().doc, screenSizes(), toCanvas(e)));
+            onDropFile(file, slotAtPoint(geometryDoc(), screenSizes(), toCanvas(e)));
           }}
           onPointerCancel={() => {
             gesture.current = null;

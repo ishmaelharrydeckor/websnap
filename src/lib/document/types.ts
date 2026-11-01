@@ -66,6 +66,12 @@ export interface MediaItem {
   duration?: number;
 }
 
+/**
+ * A timed effect on the timeline.
+ * - zoom: camera pushes in. params: `scale` (1-5), `x`/`y` focus point as 0-1 across the first screen.
+ * - parallax: a gentle drift out and back. params: `amount` (0-1), `angle` in degrees (0 = rightwards).
+ * - tilt: animates the 3D tilt to a target and back. params: `x`, `y`, `z` in degrees.
+ */
 export interface AnimationClip {
   id: string;
   type: "parallax" | "zoom" | "tilt";
@@ -104,6 +110,8 @@ interface LayerBase {
    * canvas, so the layer stays attached to the screenshot when the size, layout or tilt changes.
    */
   anchor?: number;
+  /** When set, the layer only shows between these timeline times (seconds), with a short fade. */
+  time?: { start: number; end: number };
 }
 
 /**

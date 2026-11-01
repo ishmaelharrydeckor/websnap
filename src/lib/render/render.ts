@@ -3,6 +3,7 @@ import { fontStack } from "../assets/fonts";
 import { getWallpaper } from "../assets/wallpapers";
 import type { Background, DesignDocument, Layer } from "../document/types";
 import { averageColor, makeCanvas, mix, withAlpha } from "./color";
+import { frameStateAt, layerAlpha, documentAt } from "../timeline/animation";
 import { canAnchor, LAYER_SPACE } from "./geometry";
 import { drawCanvasLayer, drawShotLayer, type RenderableImage } from "./layers";
 import { computeLayout, coverRect, FRAME_BAR_HEIGHT, slotOfLayer, type Rect, type Slot } from "./layout";
@@ -217,7 +218,14 @@ function drawShadow(
 }
 
 /** The window or device itself with its screenshot and effects, but no shadow. */
-function drawCard(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot, screen: RenderableImage | undefined, shotLayers: Layer[]) {
+function drawCard(
+  ctx: CanvasRenderingContext2D,
+  doc: DesignDocument,
+  slot: Slot,
+  screen: RenderableImage | undefined,
+  shotLayers: Layer[],
+  alphaOf: (l: Layer) => number,
+) {
   const { frame, content } = slot;
   const style = doc.frame.style;
   const device = isDeviceFrame(style) ? DEVICES[style] : undefined;
@@ -246,7 +254,14 @@ function drawCard(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot
 
   // Effects and annotations that belong to the screenshot are clipped to its screen.
   const src = screen ? { image: screen, rect: imageRect } : undefined;
-  for (const l of shotLayers) drawShotLayer(ctx, l, content, src);
+  for (const l of shotLayers) {
+    const a = alphaOf(l);
+    if (a <= 0) continue;
+    ctx.save();
+    ctx.globalAlpha *= a;
+    drawShotLayer(ctx, l, content, src);
+    ctx.restore();
+  }
   ctx.restore();
 
   if (device?.drawOverlay) {
@@ -256,15 +271,25 @@ function drawCard(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot
   }
 }
 
-function drawSlot(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot, screen: RenderableImage | undefined, shotLayers: Layer[]) {
+/** Offscreen canvases are capped so a big zoom or a 2x export can't ask for an enormous bitmap. */
+const MAX_OFFSCREEN = 4096;
+
+function drawSlot(
+  ctx: CanvasRenderingContext2D,
+  doc: DesignDocument,
+  slot: Slot,
+  screen: RenderableImage | undefined,
+  shotLayers: Layer[],
+  alphaOf: (l: Layer) => number,
+) {
   if (!isTilted(doc.tilt)) {
     drawShadow(ctx, doc, slot, screen);
-    drawCard(ctx, doc, slot, screen, shotLayers);
+    drawCard(ctx, doc, slot, screen, shotLayers, alphaOf);
     return;
   }
   // Tilted: render the card flat offscreen (at output resolution), then project it with perspective.
-  const pixelScale = ctx.getTransform().a || 1;
-  const card = renderToOffscreen(slot.frame, pixelScale, (octx) => drawCard(octx, doc, slot, screen, shotLayers));
+  const pixelScale = Math.min(ctx.getTransform().a || 1, MAX_OFFSCREEN / Math.max(slot.frame.width, slot.frame.height));
+  const card = renderToOffscreen(slot.frame, pixelScale, (octx) => drawCard(octx, doc, slot, screen, shotLayers, alphaOf));
   const k = fitScale(projectedQuad(slot.frame, doc.tilt), slot.cell);
 
   if (applyShadowEnabled(doc)) {
@@ -274,9 +299,10 @@ function drawSlot(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot
       octx.fillStyle = bodyColor(doc);
       octx.fill();
     });
-    const layer = makeCanvas(Math.ceil(doc.canvas.width * pixelScale), Math.ceil(doc.canvas.height * pixelScale));
+    const layerScale = Math.min(pixelScale, MAX_OFFSCREEN / Math.max(doc.canvas.width, doc.canvas.height));
+    const layer = makeCanvas(Math.ceil(doc.canvas.width * layerScale), Math.ceil(doc.canvas.height * layerScale));
     const lctx = layer.getContext("2d") as CanvasRenderingContext2D;
-    lctx.scale(pixelScale, pixelScale);
+    lctx.scale(layerScale, layerScale);
     drawProjected(lctx, outline, slot.frame, doc.tilt, k);
     drawShadow(ctx, doc, slot, screen, layer);
   }
@@ -287,11 +313,17 @@ function applyShadowEnabled(doc: DesignDocument): boolean {
   return doc.shot.shadowMode !== "none" && doc.shot.shadow > 0;
 }
 
-/** Draws a document onto a canvas context sized to doc.canvas. Used for preview and export. */
-export function renderDocument(ctx: CanvasRenderingContext2D, doc: DesignDocument, input: RenderInput = {}) {
-  const { width: cw, height: ch } = doc.canvas;
+/**
+ * Draws a document onto a canvas context sized to doc.canvas. Used for preview and export.
+ * `t` is the timeline time in seconds: it drives zoom, parallax and tilt clips and layers that appear on cue.
+ * At t = 0 with no clips or schedules, this is the plain static design.
+ */
+export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocument, input: RenderInput = {}, t = 0) {
+  const { width: cw, height: ch } = source.canvas;
+  const doc = documentAt(source, t); // tilt as animated at time t
+  const state = frameStateAt(source, t);
+  const unit = Math.min(cw, ch);
   ctx.clearRect(0, 0, cw, ch);
-  fillBackground(ctx, doc.background, cw, ch);
 
   const screens = input.screens ?? [];
   const { slots, headline } = computeLayout(
@@ -299,27 +331,67 @@ export function renderDocument(ctx: CanvasRenderingContext2D, doc: DesignDocumen
     screens.map((s) => (s ? { width: s.width, height: s.height } : undefined)),
   );
 
+  ctx.save();
+
+  // Camera: scale about the point of interest, keeping the view inside the canvas.
+  const { zoom } = state;
+  if (zoom.scale !== 1 && slots[0]) {
+    const c = slots[0].content;
+    const fx = c.x + zoom.x * c.width;
+    const fy = c.y + zoom.y * c.height;
+    const halfW = cw / (2 * zoom.scale);
+    const halfH = ch / (2 * zoom.scale);
+    ctx.translate(cw / 2, ch / 2);
+    ctx.scale(zoom.scale, zoom.scale);
+    ctx.translate(-Math.max(halfW, Math.min(cw - halfW, fx)), -Math.max(halfH, Math.min(ch - halfH, fy)));
+  }
+
+  // Parallax: the screens move by the full drift and the background by less, so the layers separate.
+  const fg = { x: state.drift.x * unit, y: state.drift.y * unit };
+  const bg = { x: fg.x * 0.4, y: fg.y * 0.4 };
+  if (fg.x !== 0 || fg.y !== 0) {
+    // Enlarge the background just enough to cover the edges its shift would expose (zero when it isn't moving).
+    const grow = 1 + (2 * Math.hypot(bg.x, bg.y)) / unit + 0.002;
+    ctx.save();
+    ctx.translate(cw / 2 + bg.x, ch / 2 + bg.y);
+    ctx.scale(grow, grow);
+    ctx.translate(-cw / 2, -ch / 2);
+    fillBackground(ctx, doc.background, cw, ch);
+    ctx.restore();
+  } else {
+    fillBackground(ctx, doc.background, cw, ch);
+  }
+
   if (headline) drawHeadline(ctx, doc, headline);
 
-  const layers = (input.draft ? [...doc.layers, input.draft] : doc.layers).filter((l) => l.visible);
+  const alphaOf = (l: Layer) => layerAlpha(l, t);
+  const layers = (input.draft ? [...doc.layers, input.draft] : doc.layers).filter((l) => l.visible && alphaOf(l) > 0);
+
+  ctx.save();
+  ctx.translate(fg.x, fg.y);
   slots.forEach((slot, i) => {
     const shotLayers = layers.filter((l) => LAYER_SPACE[l.type] === "shot" && slotOfLayer(l, slots.length) === i);
-    drawSlot(ctx, doc, slot, screens[i], shotLayers);
+    drawSlot(ctx, doc, slot, screens[i], shotLayers, alphaOf);
   });
 
-  // Shapes, text and images sit on top of everything. Ones attached to a screen are placed relative to it
-  // (and tilt with it); the rest are placed anywhere on the canvas.
-  const canvasRect: Rect = { x: 0, y: 0, width: cw, height: ch };
+  ctx.restore();
+
+  // Shapes, text and images sit on top of everything, in layer order. Ones attached to a screen are placed
+  // relative to it (and tilt and drift with it); the rest are placed anywhere on the canvas.
   const transforms = slots.map((s) => screenTransform(s.frame, s.cell, doc.tilt));
+  const canvasRect: Rect = { x: 0, y: 0, width: cw, height: ch };
   for (const l of layers) {
     if (LAYER_SPACE[l.type] !== "canvas") continue;
-    if (l.anchor !== undefined && canAnchor(l.type)) {
-      const i = Math.max(0, Math.min(l.anchor, slots.length - 1));
-      drawCanvasLayer(ctx, l, slots[i].frame, input.images, fontStack(doc.font), transforms[i]);
-    } else {
-      drawCanvasLayer(ctx, l, canvasRect, input.images, fontStack(doc.font));
-    }
+    const attached = l.anchor !== undefined && canAnchor(l.type);
+    const i = attached ? Math.max(0, Math.min(l.anchor!, slots.length - 1)) : 0;
+    ctx.save();
+    if (attached) ctx.translate(fg.x, fg.y);
+    ctx.globalAlpha *= alphaOf(l);
+    drawCanvasLayer(ctx, l, attached ? slots[i].frame : canvasRect, input.images, fontStack(doc.font), attached ? transforms[i] : undefined);
+    ctx.restore();
   }
+
+  ctx.restore(); // end of the camera
 
   if (doc.watermark.show && doc.watermark.text.trim()) drawWatermark(ctx, doc);
 }

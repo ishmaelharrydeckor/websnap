@@ -250,3 +250,61 @@ describe("editing cuts", () => {
     expect(s.getState().ui.selectedSegment).toBeNull();
   });
 });
+
+describe("animation clips", () => {
+  it("adds a clip inside the timeline, selects it, and undo removes it", () => {
+    const s = createEditorStore();
+    s.getState().addClip("zoom", 3);
+    const [clip] = s.getState().doc.timeline.clips;
+    expect(clip).toMatchObject({ type: "zoom", start: 3 });
+    expect(clip.end).toBeLessThanOrEqual(10);
+    expect(s.getState().ui.selectedClip).toBe(clip.id);
+    s.getState().undo();
+    expect(s.getState().doc.timeline.clips).toHaveLength(0);
+  });
+
+  it("updates a clip as one coalesced step while dragging", () => {
+    const s = createEditorStore();
+    s.getState().addClip("tilt", 1);
+    const id = s.getState().doc.timeline.clips[0].id;
+    const before = s.getState().past.length;
+    for (const start of [1.2, 1.5, 1.9]) s.getState().updateClip(id, (c) => ({ ...c, start, end: start + 2 }), "drag:clip:1");
+    expect(s.getState().past.length).toBe(before + 1);
+    expect(s.getState().doc.timeline.clips[0].start).toBe(1.9);
+  });
+
+  it("removes a clip and clears its selection", () => {
+    const s = createEditorStore();
+    s.getState().addClip("parallax", 0);
+    const id = s.getState().doc.timeline.clips[0].id;
+    s.getState().removeClip(id);
+    expect(s.getState().doc.timeline.clips).toHaveLength(0);
+    expect(s.getState().ui.selectedClip).toBeNull();
+  });
+
+  it("shortening the video trims or drops clips that no longer fit", () => {
+    const s = createEditorStore();
+    s.getState().setImage({ id: "v", kind: "video", duration: 10, width: 640, height: 360, source: { width: 640, height: 360 } as never, blob: new Blob(["v"]) });
+    s.getState().addClip("zoom", 1); // 1 - 3.5
+    s.getState().addClip("tilt", 7.5); // 7.5 - 10
+    s.getState().editSegments((segs) => trimSegment(segs, 0, "end", 5, 10));
+    const clips = s.getState().doc.timeline.clips;
+    expect(clips).toHaveLength(1);
+    expect(clips[0].type).toBe("zoom");
+    expect(clips[0].end).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("timeline selection", () => {
+  it("selecting a segment deselects the clip and the other way round", () => {
+    const s = createEditorStore();
+    s.getState().addClip("zoom", 1);
+    expect(s.getState().ui.selectedClip).not.toBeNull();
+    s.getState().selectSegment(0);
+    expect(s.getState().ui.selectedClip).toBeNull();
+    expect(s.getState().ui.selectedSegment).toBe(0);
+    const id = s.getState().doc.timeline.clips[0].id;
+    s.getState().selectClip(id);
+    expect(s.getState().ui.selectedSegment).toBeNull();
+  });
+});

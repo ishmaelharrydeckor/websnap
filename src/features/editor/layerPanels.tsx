@@ -5,6 +5,7 @@ import { canAnchor, screenForLayer, setAnchor, TOOLS } from "@/lib/render/geomet
 import { Section, Slider, TextField, Toggle } from "./controls";
 import type { PanelProps } from "./panelTypes";
 import { editorStore, screenImages, useEditor } from "./store";
+import { formatTime } from "./Timeline";
 
 const STICKERS = ["🚀", "✨", "🔥", "👀", "✅", "❤️", "🎉", "⚡", "📈", "💯", "👉", "🤯", "⭐", "💡", "🙌", "👇"];
 
@@ -171,6 +172,7 @@ export function Inspector() {
       {layer.type === "pixelate" && <Slider label="Block size" value={layer.size} min={6} max={60} onChange={(size) => set({ size }, "size")} />}
       {layer.type === "magnify" && <Slider label="Zoom" value={layer.zoom} min={1.5} max={4} step={0.1} format={(v) => `${v.toFixed(1)}x`} onChange={(zoom) => set({ zoom }, "zoom")} />}
       {layer.type === "step" && <Slider label="Number" value={layer.n} min={1} max={20} onChange={(n) => set({ n }, "n")} />}
+      <CueControls layer={layer} />
       <button
         type="button"
         className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-red-300 hover:bg-white/20"
@@ -179,5 +181,57 @@ export function Inspector() {
         Delete layer
       </button>
     </Section>
+  );
+}
+
+
+/** Lets a layer appear only during part of the timeline, with a short fade. */
+function CueControls({ layer }: { layer: Layer }) {
+  const duration = useEditor((s) => s.doc.timeline.duration);
+  const time = layer.time;
+  const set = (next: { start: number; end: number } | undefined, key?: string) =>
+    editorStore.getState().updateLayer(
+      layer.id,
+      (l) => {
+        const copy = { ...l };
+        if (next) copy.time = next;
+        else delete copy.time;
+        return copy as Layer;
+      },
+      key,
+    );
+  return (
+    <div>
+      <Toggle
+        label="Show on cue"
+        checked={time !== undefined}
+        onChange={(on) => {
+          const now = editorStore.getState().playback.time;
+          set(on ? { start: Math.min(now, Math.max(0, duration - 1)), end: Math.min(duration, now + 2) } : undefined);
+        }}
+      />
+      {time && (
+        <div className="mt-2 flex flex-col gap-2">
+          <Slider
+            label="Appears at"
+            value={time.start}
+            min={0}
+            max={duration}
+            step={0.1}
+            format={formatTime}
+            onChange={(v) => set({ start: Math.min(v, time.end - 0.2), end: time.end }, `cue:${layer.id}`)}
+          />
+          <Slider
+            label="Disappears at"
+            value={time.end}
+            min={0}
+            max={duration}
+            step={0.1}
+            format={formatTime}
+            onChange={(v) => set({ start: time.start, end: Math.max(v, time.start + 0.2) }, `cue:${layer.id}`)}
+          />
+        </div>
+      )}
+    </div>
   );
 }

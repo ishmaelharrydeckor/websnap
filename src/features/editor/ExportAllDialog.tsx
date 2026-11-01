@@ -35,6 +35,7 @@ export function ExportAllDialog({ format, scale, onClose, onDone }: { format: Ex
       const zip = await exportAllSizes(state.doc, renderInputFor(state), presets, {
         format,
         scale,
+        time: state.playback.time,
         onProgress: (done, total) => setProgress({ done, total }),
       });
       downloadBlob(zip, "websnap-export.zip");
