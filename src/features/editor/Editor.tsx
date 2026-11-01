@@ -11,6 +11,7 @@ import { CommandPalette } from "./CommandPalette";
 import { ExportAllDialog } from "./ExportAllDialog";
 import { ExportVideoDialog } from "./ExportVideoDialog";
 import { ShareDialog } from "./ShareDialog";
+import { UrlCaptureDialog } from "./UrlCaptureDialog";
 import { useOpenShared } from "./useOpenShared";
 import { buildCommands, type Command } from "./commands";
 import { InsertPanel, LayersPanel } from "./layerPanels";
@@ -47,6 +48,7 @@ export function Editor() {
   const [exportAllOpen, setExportAllOpen] = useState(false);
   const [exportVideoOpen, setExportVideoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [urlOpen, setUrlOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0); // seconds into the current recording
   const recorder = useRef<RecorderHandle | null>(null);
@@ -248,6 +250,9 @@ export function Editor() {
         <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={onCapture}>
           Capture screen
         </button>
+        <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => setUrlOpen(true)}>
+          From URL
+        </button>
         {recording ? (
           <button type="button" className={`${btn} bg-red-600 text-white hover:bg-red-500`} onClick={() => recorder.current?.stop()} aria-label="Stop recording">
             ● Stop {formatTime(elapsed)}
@@ -424,6 +429,7 @@ export function Editor() {
         </main>
       </div>
       {timelineOpen && <Timeline />}
+      {urlOpen && <UrlCaptureDialog onClose={() => setUrlOpen(false)} onCapture={(png) => void importBlob(png)} />}
       {shareOpen && <ShareDialog onClose={() => setShareOpen(false)} onDone={notify} />}
       {exportVideoOpen && <ExportVideoDialog onClose={() => setExportVideoOpen(false)} onDone={notify} />}
       {exportAllOpen && <ExportAllDialog format={format} scale={scale} onClose={() => setExportAllOpen(false)} onDone={notify} />}

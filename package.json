@@ -13,6 +13,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",
     "next": "16.4.3",
+    "playwright-core": "1.56.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zustand": "^5.0.16"

@@ -12,6 +12,10 @@ ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 SHARE_DATA_DIR=/data
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
+# Chromium for "screenshot a URL". Skip it (smaller image) with: docker build --build-arg WITH_BROWSER=0 .
+ARG WITH_BROWSER=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN if [ "$WITH_BROWSER" = "1" ]; then node node_modules/playwright-core/cli.js install --with-deps chromium && chmod -R a+rX /ms-playwright; fi
 VOLUME /data
 EXPOSE 3000
 USER node

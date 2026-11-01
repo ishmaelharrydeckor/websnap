@@ -154,9 +154,16 @@ server build. NOT verified: the Docker image (no Docker daemon here), the S3 dri
 server (unit-tested with a mocked SDK), video playback on the link page (it shows the preview picture; the
 video is only played after "Open in the editor").
 
-Still to do:
-Upload + public links (self-hostable), screenshot-a-URL (headless browser service),
-effects (noise/VHS/glitch), 3D scenes, desktop/extension wrappers.
+**Screenshot a URL**: "From URL" in the header; the server opens the page in headless Chromium
+(`playwright-core`) and returns a PNG (window size, whole page, dark mode, 2x). SSRF defences: URL rules, every
+request (page, subresources, each redirect hop) goes through our own fetcher that connects only to addresses
+that passed the check, Chromium has no direct network, plus size/time/request/pixel limits, rate limit,
+concurrency limit, optional token. Off unless `SCREENSHOT_ENABLED=1`. Verified with 34 server checks and 14 UI
+checks against a local test site (including blocked ports/addresses, redirects, timeouts, oversize responses),
+plus unit tests. NOT verified: DNS-rebinding against a real resolver (covered by unit tests with a fake one), the
+Docker Chromium install, and pages that need WebSockets (closed on purpose) or logins (not supported).
+
+Still to do: 3D shapes/scenes, desktop and browser-extension wrappers.
 
 ## Templates
 Templates are JSON documents in our own model that keep the user's content when swapped.

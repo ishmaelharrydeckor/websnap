@@ -21,6 +21,7 @@ npm run build
 The editor works fully offline in the browser. If you host it yourself you can turn on a Share button that
 uploads a design to your server and returns a public link. It is off by default.
 See [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) (Docker, folder or S3-compatible storage, limits, safety notes).
+The same guide covers the optional "From URL" button, which screenshots a public web page on the server.
 
 ## Layout
 
