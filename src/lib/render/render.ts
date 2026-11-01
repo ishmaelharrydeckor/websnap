@@ -6,6 +6,7 @@ import { averageColor, makeCanvas, mix, withAlpha } from "./color";
 import { frameStateAt, layerAlpha, documentAt } from "../timeline/animation";
 import { canAnchor, LAYER_SPACE } from "./geometry";
 import { applyEffects, hasEffects } from "./effects";
+import { drawScene, sceneFaces } from "./scene3d";
 import { drawCanvasLayer, drawShotLayer, type RenderableImage } from "./layers";
 import { computeLayout, coverRect, FRAME_BAR_HEIGHT, slotOfLayer, type Rect, type Slot } from "./layout";
 import { drawProjected, fitScale, isTilted, projectedQuad, renderToOffscreen, screenTransform } from "./perspective";
@@ -363,6 +364,10 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
     fillBackground(ctx, doc.background, cw, ch);
   }
 
+  // 3D shapes: most sit behind the screens and drift less than they do; a few float in front and drift more.
+  const scene = doc.scene.kind === "none" ? undefined : sceneFaces(doc.scene, doc.background, cw, ch, t, { back: [bg.x, bg.y], front: [fg.x * 1.3, fg.y * 1.3] });
+  if (scene) drawScene(ctx, scene.back);
+
   if (headline) drawHeadline(ctx, doc, headline);
 
   const alphaOf = (l: Layer) => layerAlpha(l, t);
@@ -376,6 +381,8 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
   });
 
   ctx.restore();
+
+  if (scene) drawScene(ctx, scene.front);
 
   // Shapes, text and images sit on top of everything, in layer order. Ones attached to a screen are placed
   // relative to it (and tilt and drift with it); the rest are placed anywhere on the canvas.

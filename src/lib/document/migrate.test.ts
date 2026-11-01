@@ -50,3 +50,15 @@ describe("normalizeDocument effects", () => {
     expect(bad).toEqual({ noise: 1, vhs: 0, glitch: 0 });
   });
 });
+
+describe("normalizeDocument scene", () => {
+  it("gives old designs no 3D shapes", () => {
+    expect(normalizeDocument({}).scene.kind).toBe("none");
+  });
+  it("repairs bad values and keeps good ones", () => {
+    const s = normalizeDocument({ scene: { kind: "banana", palette: "nope", seed: NaN, size: 99, motion: -3 } as never }).scene;
+    expect(s).toMatchObject({ kind: "none", palette: "auto", size: 1.6, motion: 0 });
+    expect(Number.isFinite(s.seed)).toBe(true);
+    expect(normalizeDocument({ scene: { kind: "rings", palette: "ocean", seed: 7.9, size: 1.2, motion: 0.3 } }).scene).toEqual({ kind: "rings", palette: "ocean", seed: 7, size: 1.2, motion: 0.3 });
+  });
+});

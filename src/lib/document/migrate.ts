@@ -1,5 +1,5 @@
 import { createDefaultDocument } from "./defaults";
-import type { DesignDocument } from "./types";
+import type { DesignDocument, SceneKind, ScenePalette } from "./types";
 
 /**
  * Fills in anything a saved document is missing (fields added in later releases) so older
@@ -19,6 +19,7 @@ export function normalizeDocument(saved: Partial<DesignDocument>): DesignDocumen
     headline: { ...d.headline, ...saved.headline },
     watermark: { ...d.watermark, ...saved.watermark },
     effects: sanitizeEffects({ ...d.effects, ...saved.effects }),
+    scene: sanitizeScene({ ...d.scene, ...saved.scene }, d.scene),
     media: saved.media ?? d.media,
     layers: saved.layers ?? d.layers,
     timeline: { ...d.timeline, ...saved.timeline, sound: { ...d.timeline.sound, ...saved.timeline?.sound } },
@@ -38,4 +39,18 @@ const unit = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? Math
 
 function sanitizeEffects(e: DesignDocument["effects"]): DesignDocument["effects"] {
   return { noise: unit(e.noise), vhs: unit(e.vhs), glitch: unit(e.glitch) };
+}
+
+const KINDS: SceneKind[] = ["none", "orbs", "cubes", "rings", "mix"];
+const PALETTES: ScenePalette[] = ["auto", "sunset", "ocean", "candy", "mono"];
+
+function sanitizeScene(s: DesignDocument["scene"], fallback: DesignDocument["scene"]): DesignDocument["scene"] {
+  const num = (n: unknown, lo: number, hi: number, d: number) => (typeof n === "number" && Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d);
+  return {
+    kind: KINDS.includes(s.kind) ? s.kind : fallback.kind,
+    palette: PALETTES.includes(s.palette) ? s.palette : fallback.palette,
+    seed: typeof s.seed === "number" && Number.isFinite(s.seed) ? Math.trunc(s.seed) : fallback.seed,
+    size: num(s.size, 0.5, 1.6, fallback.size),
+    motion: num(s.motion, 0, 1, fallback.motion),
+  };
 }

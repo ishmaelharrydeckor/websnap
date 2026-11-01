@@ -62,6 +62,21 @@ export interface EffectsSettings {
   glitch: number;
 }
 
+export type SceneKind = "none" | "orbs" | "cubes" | "rings" | "mix";
+export type ScenePalette = "auto" | "sunset" | "ocean" | "candy" | "mono";
+
+/** Decorative 3D shapes drawn behind (and a few in front of) the screens. */
+export interface SceneSettings {
+  kind: SceneKind;
+  palette: ScenePalette;
+  /** Changes the arrangement; any whole number. */
+  seed: number;
+  /** Shape size, 0.5 (small) to 1.6 (large). */
+  size: number;
+  /** How much the shapes drift and spin as the timeline plays, 0 (still) to 1. */
+  motion: number;
+}
+
 export interface MediaItem {
   id: string;
   kind: "image" | "video";
@@ -175,6 +190,7 @@ export interface DesignDocument {
   headline: HeadlineSettings;
   watermark: WatermarkSettings;
   effects: EffectsSettings;
+  scene: SceneSettings;
   media: MediaItem[];
   layers: Layer[];
   timeline: Timeline;

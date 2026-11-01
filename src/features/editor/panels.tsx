@@ -104,6 +104,53 @@ function MagicSection() {
   );
 }
 
+function SceneSection() {
+  const scene = useEditor((s) => s.doc.scene);
+  const update = useEditor((s) => s.update);
+  return (
+    <Section title="3D shapes">
+      <Segmented
+        label="Shape type"
+        value={scene.kind}
+        options={[
+          { id: "none", label: "None" },
+          { id: "orbs", label: "Orbs" },
+          { id: "cubes", label: "Cubes" },
+          { id: "rings", label: "Rings" },
+          { id: "mix", label: "Mix" },
+        ]}
+        onChange={(v) => update((d) => void (d.scene.kind = v))}
+      />
+      {scene.kind !== "none" && (
+        <>
+          <Segmented
+            label="Shape colours"
+            value={scene.palette}
+            options={[
+              { id: "auto", label: "Match" },
+              { id: "sunset", label: "Sunset" },
+              { id: "ocean", label: "Ocean" },
+              { id: "candy", label: "Candy" },
+              { id: "mono", label: "Mono" },
+            ]}
+            onChange={(v) => update((d) => void (d.scene.palette = v))}
+          />
+          <Slider label="Size" value={Math.round(scene.size * 100)} min={50} max={160} onChange={(v) => update((d) => void (d.scene.size = v / 100), "scene-size")} />
+          <Slider label="Motion" value={Math.round(scene.motion * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.scene.motion = v / 100), "scene-motion")} />
+          <button
+            type="button"
+            onClick={() => update((d) => void (d.scene.seed = Math.floor(Math.random() * 1_000_000)))}
+            className="w-full rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/20"
+          >
+            Shuffle arrangement
+          </button>
+          <p className="text-xs text-neutral-500">Shapes spin and drift while the timeline plays.</p>
+        </>
+      )}
+    </Section>
+  );
+}
+
 export function BackgroundPanel() {
   const bg = useEditor((s) => s.doc.background);
   const effects = useEditor((s) => s.doc.effects);
@@ -158,6 +205,7 @@ export function BackgroundPanel() {
           </label>
         </div>
       </Section>
+      <SceneSection />
       <Section title="Effects">
         <Slider label="Film grain" value={Math.round(effects.noise * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.effects.noise = v / 100), "fx-noise")} />
         <Slider label="VHS" value={Math.round(effects.vhs * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.effects.vhs = v / 100), "fx-vhs")} />

@@ -163,7 +163,14 @@ checks against a local test site (including blocked ports/addresses, redirects, 
 plus unit tests. NOT verified: DNS-rebinding against a real resolver (covered by unit tests with a fake one), the
 Docker Chromium install, and pages that need WebSockets (closed on purpose) or logins (not supported).
 
-Still to do: 3D shapes/scenes, desktop and browser-extension wrappers.
+**3D shapes**: Background tab > "3D shapes" (orbs, cubes, rings, mix; colours that match the background or a
+preset; size; motion; shuffle). A small software 3D renderer in the shared canvas renderer: lit meshes
+(rings, cubes), gradient-shaded balls, seeded arrangement that keeps the middle clear for the screens, most
+shapes behind the screens and a few in front, drifting with the camera's parallax and spinning over the
+timeline (so video exports animate). Limits: not real WebGL (no reflections, shadows or textures), shapes
+don't intersect or cast shadows, fixed light direction, no custom 3D models.
+
+Still to do: desktop and browser-extension wrappers.
 
 ## Templates
 Templates are JSON documents in our own model that keep the user's content when swapped.
