@@ -145,6 +145,15 @@ Done so far: **effects** (film grain, VHS, glitch): sliders in the Background ta
 preview, images and every video frame, animated over time and repeatable frame by frame. Cost at 1600x900 is
 about 15-40 ms per frame, so the preview may drop below 30 fps with all three at maximum; export is unaffected.
 
+**Share links** (self-hostable): Share button uploads the design, its files and a PNG preview; public page
+`/s/<id>` with "Open in the editor" (loads the design and files); delete from the browser that made it. Server:
+Next route handlers, SQLite (`node:sqlite`) for records, files in a folder or any S3-compatible bucket, size
+and type limits, per-IP rate limit, optional upload token and expiry. Off unless `SHARE_ENABLED=1`. Docker
+files and docs in `docs/SELF_HOSTING.md`. Verified end to end in Chromium (24 checks) and with the standalone
+server build. NOT verified: the Docker image (no Docker daemon here), the S3 driver against a real S3/MinIO
+server (unit-tested with a mocked SDK), video playback on the link page (it shows the preview picture; the
+video is only played after "Open in the editor").
+
 Still to do:
 Upload + public links (self-hostable), screenshot-a-URL (headless browser service),
 effects (noise/VHS/glitch), 3D scenes, desktop/extension wrappers.

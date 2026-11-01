@@ -16,6 +16,12 @@ npm test
 npm run build
 ```
 
+## Share links (optional, self-hosted)
+
+The editor works fully offline in the browser. If you host it yourself you can turn on a Share button that
+uploads a design to your server and returns a public link. It is off by default.
+See [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) (Docker, folder or S3-compatible storage, limits, safety notes).
+
 ## Layout
 
 - `src/lib/document`: editor document schema and defaults

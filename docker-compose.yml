@@ -1,0 +1,18 @@
+# WebSnap with share links. Files and the SQLite database live in the `websnap-data` volume.
+# For S3-compatible storage instead, set SHARE_STORAGE=s3 plus the S3_* variables (see docs/SELF_HOSTING.md).
+services:
+  websnap:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      SHARE_ENABLED: "1"
+      SHARE_PUBLIC_URL: "http://localhost:3000"
+      # SHARE_UPLOAD_TOKEN: "choose-a-long-random-secret"
+      # SHARE_EXPIRE_DAYS: "30"
+    volumes:
+      - websnap-data:/data
+    restart: unless-stopped
+
+volumes:
+  websnap-data:
