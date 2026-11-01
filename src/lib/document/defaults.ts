@@ -15,7 +15,8 @@ export function createDefaultDocument(): DesignDocument {
       ],
     },
     frame: { style: "browser", dark: false, url: "yourproduct.com" },
-    shot: { padding: 0.09, radius: 14, shadow: 55 },
+    layout: { kind: "single" },
+    shot: { padding: 0.09, radius: 14, shadow: 55, shadowMode: "spread" },
     headline: {
       show: false,
       text: "Ship pages people remember",

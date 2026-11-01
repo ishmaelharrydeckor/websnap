@@ -1,10 +1,11 @@
 import type { Layer } from "../document/types";
+import { withAlpha } from "./color";
 import { layerBoundsPx, STEP_RADIUS } from "./geometry";
 import type { Rect } from "./layout";
 
 export type RenderableImage = CanvasImageSource & { width: number; height: number };
 
-/** The screenshot as drawn on the canvas: the image plus the rect it fills. Needed by effects that sample it. */
+/** The screenshot as drawn on the canvas: the image plus the rect the whole image fills (it may extend past the screen when cover-fitted). */
 export interface ShotSource {
   image: RenderableImage;
   rect: Rect;
@@ -145,13 +146,6 @@ export function drawShotLayer(ctx: CanvasRenderingContext2D, layer: Layer, rect:
     default:
       break;
   }
-}
-
-function withAlpha(hex: string, alpha: number): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return hex;
-  const n = parseInt(m[1], 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
 /** Draws a layer that lives on the canvas (arrow, shapes, steps, drawing, text, image). `rect` is the whole canvas. */

@@ -1,4 +1,4 @@
-import type { Background, DesignDocument, FrameStyle } from "../document/types";
+import type { Background, DesignDocument, FrameStyle, ShadowMode } from "../document/types";
 import { GRADIENT_PRESETS } from "./backgrounds";
 
 export interface Template {
@@ -6,7 +6,7 @@ export interface Template {
   name: string;
   background: Background;
   frame: { style: FrameStyle; dark: boolean };
-  shot: { padding: number; radius: number; shadow: number };
+  shot: { padding: number; radius: number; shadow: number; shadowMode: ShadowMode };
   headline: { show: boolean; position: "top" | "bottom"; align: "left" | "center"; size: number; color: string };
 }
 
@@ -22,7 +22,7 @@ export const TEMPLATES: Template[] = [
     name: "Hero",
     background: gradient("sunset"),
     frame: { style: "browser", dark: false },
-    shot: { padding: 0.09, radius: 14, shadow: 55 },
+    shot: { padding: 0.09, radius: 14, shadow: 55, shadowMode: "spread" },
     headline: { show: true, position: "top", align: "center", size: 64, color: "#ffffff" },
   },
   {
@@ -30,7 +30,7 @@ export const TEMPLATES: Template[] = [
     name: "Spotlight",
     background: { kind: "wallpaper", id: "aurora" },
     frame: { style: "macos", dark: true },
-    shot: { padding: 0.09, radius: 16, shadow: 70 },
+    shot: { padding: 0.09, radius: 16, shadow: 70, shadowMode: "spread" },
     headline: { show: true, position: "bottom", align: "center", size: 56, color: "#ffffff" },
   },
   {
@@ -38,7 +38,7 @@ export const TEMPLATES: Template[] = [
     name: "Clean",
     background: { kind: "solid", color: "#f3f2ee" },
     frame: { style: "safari", dark: false },
-    shot: { padding: 0.08, radius: 12, shadow: 25 },
+    shot: { padding: 0.08, radius: 12, shadow: 25, shadowMode: "spread" },
     headline: { show: true, position: "top", align: "left", size: 56, color: "#111111" },
   },
   {
@@ -46,7 +46,7 @@ export const TEMPLATES: Template[] = [
     name: "Bold",
     background: { kind: "wallpaper", id: "ember" },
     frame: { style: "none", dark: false },
-    shot: { padding: 0.1, radius: 28, shadow: 80 },
+    shot: { padding: 0.1, radius: 28, shadow: 80, shadowMode: "spread" },
     headline: { show: true, position: "top", align: "left", size: 72, color: "#ffffff" },
   },
   {
@@ -54,7 +54,7 @@ export const TEMPLATES: Template[] = [
     name: "Minimal",
     background: { kind: "wallpaper", id: "grid" },
     frame: { style: "none", dark: false },
-    shot: { padding: 0.1, radius: 10, shadow: 30 },
+    shot: { padding: 0.1, radius: 10, shadow: 30, shadowMode: "spread" },
     headline: { show: false, position: "top", align: "center", size: 56, color: "#111111" },
   },
   {
@@ -62,7 +62,7 @@ export const TEMPLATES: Template[] = [
     name: "Soft",
     background: gradient("peach"),
     frame: { style: "macos", dark: false },
-    shot: { padding: 0.09, radius: 18, shadow: 35 },
+    shot: { padding: 0.09, radius: 18, shadow: 35, shadowMode: "spread" },
     headline: { show: true, position: "bottom", align: "center", size: 52, color: "#3b2a20" },
   },
   {
@@ -70,7 +70,7 @@ export const TEMPLATES: Template[] = [
     name: "Ocean",
     background: gradient("ocean"),
     frame: { style: "browser", dark: true },
-    shot: { padding: 0.09, radius: 14, shadow: 60 },
+    shot: { padding: 0.09, radius: 14, shadow: 60, shadowMode: "spread" },
     headline: { show: true, position: "top", align: "center", size: 60, color: "#ffffff" },
   },
   {
@@ -78,7 +78,7 @@ export const TEMPLATES: Template[] = [
     name: "Studio",
     background: { kind: "wallpaper", id: "studio" },
     frame: { style: "browser", dark: true },
-    shot: { padding: 0.07, radius: 14, shadow: 85 },
+    shot: { padding: 0.07, radius: 14, shadow: 85, shadowMode: "spread" },
     headline: { show: false, position: "top", align: "center", size: 56, color: "#ffffff" },
   },
 ];

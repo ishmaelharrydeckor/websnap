@@ -13,6 +13,7 @@ export function normalizeDocument(saved: Partial<DesignDocument>): DesignDocumen
     version: 1,
     canvas: { ...d.canvas, ...saved.canvas },
     frame: { ...d.frame, ...saved.frame },
+    layout: { ...d.layout, ...saved.layout },
     shot: { ...d.shot, ...saved.shot },
     headline: { ...d.headline, ...saved.headline },
     watermark: { ...d.watermark, ...saved.watermark },

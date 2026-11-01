@@ -1,11 +1,27 @@
 export type FontId = "sans" | "serif" | "mono" | "rounded";
 
-export type FrameStyle = "none" | "macos" | "browser" | "safari";
+export type WindowFrameStyle = "macos" | "browser" | "safari";
+export type DeviceFrameStyle = "iphone" | "android" | "ipad" | "macbook" | "monitor";
+export type FrameStyle = "none" | WindowFrameStyle | DeviceFrameStyle;
+
+/** How many screens share the canvas. Screens are filled from the media list in order. */
+export type LayoutKind = "single" | "duo" | "trio";
+
+export type ShadowMode = "none" | "spread" | "hug" | "adaptive";
+
+export interface MeshBlob {
+  x: number;
+  y: number;
+  /** Radius as a fraction of the longer canvas side. */
+  r: number;
+  color: string;
+}
 
 export type Background =
   | { kind: "solid"; color: string }
   | { kind: "gradient"; angle: number; stops: { offset: number; color: string }[] }
-  | { kind: "wallpaper"; id: string };
+  | { kind: "wallpaper"; id: string }
+  | { kind: "mesh"; base: string; blobs: MeshBlob[] };
 
 export interface ShotSettings {
   /** Padding around the screenshot as a fraction of the shorter canvas side (0-0.4). */
@@ -14,6 +30,7 @@ export interface ShotSettings {
   radius: number;
   /** Shadow strength, 0-100. */
   shadow: number;
+  shadowMode: ShadowMode;
 }
 
 export interface HeadlineSettings {
@@ -60,6 +77,8 @@ export interface Timeline {
 interface LayerBase {
   id: string;
   visible: boolean;
+  /** Which screen a screenshot effect belongs to (0-based). Ignored for canvas layers. Defaults to 0. */
+  slot?: number;
 }
 
 /**
@@ -91,6 +110,7 @@ export interface DesignDocument {
   font: FontId;
   background: Background;
   frame: { style: FrameStyle; dark: boolean; url: string };
+  layout: { kind: LayoutKind };
   shot: ShotSettings;
   headline: HeadlineSettings;
   watermark: WatermarkSettings;

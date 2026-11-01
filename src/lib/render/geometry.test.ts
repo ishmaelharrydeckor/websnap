@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultDocument } from "../document/defaults";
 import type { Layer } from "../document/types";
-import { createLayer, hitTest, layerBoundsPx, layerHandles, pickLayer, resizeLayer, toNormalized, translateLayer } from "./geometry";
+import { createLayer, hitTest, layerBoundsPx, layerHandles, layerRect, pickLayer, resizeLayer, slotAt, toNormalized, translateLayer } from "./geometry";
 
 const rect = { x: 100, y: 50, width: 400, height: 200 };
 
@@ -64,6 +64,33 @@ describe("layer geometry", () => {
 
   it("converts pixels to normalised coordinates", () => {
     expect(toNormalized(rect, 300, 150)).toEqual([0.5, 0.5]);
+  });
+
+  it("assigns shot effects to the screen they were drawn on", () => {
+    expect(createLayer("blur", [0.2, 0.2], [0.5, 0.5], { id: "a", slot: 2 })).toMatchObject({ slot: 2 });
+    expect(createLayer("blur", [0.2, 0.2], [0.5, 0.5], { id: "b" })).not.toHaveProperty("slot");
+  });
+
+  it("resolves screenshot-effect rects per screen, clamping slots that no longer exist", () => {
+    const doc = createDefaultDocument();
+    doc.layout.kind = "duo";
+    doc.frame.style = "iphone";
+    const second = { ...createLayer("blur", [0, 0], [1, 1], { id: "a", slot: 1 })! };
+    const orphan = { ...createLayer("blur", [0, 0], [1, 1], { id: "b", slot: 5 })! };
+    const r1 = layerRect(doc, second);
+    expect(r1.x).toBeGreaterThan(doc.canvas.width / 2 - 1);
+    expect(layerRect(doc, orphan)).toEqual(r1); // slot 5 clamps to the last screen
+    doc.layout.kind = "single";
+    expect(layerRect(doc, second).x).toBeLessThan(doc.canvas.width / 2);
+  });
+
+  it("finds the screen nearest a point", () => {
+    const doc = createDefaultDocument();
+    doc.layout.kind = "trio";
+    doc.frame.style = "iphone";
+    expect(slotAt(doc, [], 5)).toBe(0);
+    expect(slotAt(doc, [], doc.canvas.width / 2)).toBe(1);
+    expect(slotAt(doc, [], doc.canvas.width - 5)).toBe(2);
   });
 
   it("picks the topmost layer, with canvas layers above shot layers", () => {

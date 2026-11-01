@@ -5,9 +5,14 @@ import { GRADIENT_PRESETS, SOLID_PRESETS } from "@/lib/assets/backgrounds";
 import { FONTS } from "@/lib/assets/fonts";
 import { SIZE_PRESETS } from "@/lib/assets/sizes";
 import { getWallpaper, WALLPAPERS } from "@/lib/assets/wallpapers";
-import type { FrameStyle } from "@/lib/document/types";
+import { DEVICE_LIST, isDeviceFrame } from "@/lib/assets/devices";
+import { buildMesh, extractPalette, meshPalette } from "@/lib/assets/magic";
+import type { FrameStyle, LayoutKind, ShadowMode } from "@/lib/document/types";
+import { samplePixels } from "@/lib/render/color";
+import { SLOT_COUNT } from "@/lib/render/layout";
+import type { PanelProps } from "./panelTypes";
 import { Section, Segmented, Slider, TextField, Toggle } from "./controls";
-import { editorStore, useEditor } from "./store";
+import { editorStore, primaryImage, useEditor } from "./store";
 
 const update = (...args: Parameters<ReturnType<typeof editorStore.getState>["update"]>) =>
   editorStore.getState().update(...args);
@@ -56,10 +61,53 @@ function Swatch({ active, onClick, style, label }: { active: boolean; onClick: (
   );
 }
 
+function MagicSection() {
+  const bg = useEditor((s) => s.doc.background);
+  const hasImage = useEditor((s) => primaryImage(s) !== undefined);
+
+  function generate() {
+    const image = primaryImage(editorStore.getState());
+    if (!image) return;
+    const colors = extractPalette(samplePixels(image.source, 32), 3);
+    update((d) => void (d.background = buildMesh(colors, Math.floor(Math.random() * 1e9))));
+  }
+
+  function shuffle() {
+    if (bg.kind !== "mesh") return;
+    update((d) => void (d.background = buildMesh(meshPalette(bg), Math.floor(Math.random() * 1e9))));
+  }
+
+  return (
+    <Section title="Magic background">
+      <p className="text-xs text-neutral-500">Builds a glowing background from the colors in your screenshot.</p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={!hasImage}
+          onClick={generate}
+          className="flex-1 rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          ✨ Generate
+        </button>
+        <button
+          type="button"
+          disabled={bg.kind !== "mesh"}
+          onClick={shuffle}
+          className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Shuffle
+        </button>
+      </div>
+      {!hasImage && <p className="text-xs text-neutral-500">Add a screenshot first.</p>}
+    </Section>
+  );
+}
+
 export function BackgroundPanel() {
   const bg = useEditor((s) => s.doc.background);
   return (
     <>
+      <MagicSection />
       <Section title="Gradients">
         <div className="grid grid-cols-4 gap-2">
           {GRADIENT_PRESETS.map((p) => {
@@ -133,27 +181,88 @@ function WallpaperThumb({ id, name, active }: { id: string; name: string; active
   );
 }
 
-const FRAMES: { id: FrameStyle; label: string }[] = [
+const WINDOW_FRAMES: { id: FrameStyle; label: string }[] = [
   { id: "none", label: "None" },
   { id: "macos", label: "macOS" },
   { id: "browser", label: "Browser" },
   { id: "safari", label: "Safari" },
 ];
 
-export function StylePanel() {
+const LAYOUTS: { id: LayoutKind; label: string }[] = [
+  { id: "single", label: "1 screen" },
+  { id: "duo", label: "2 screens" },
+  { id: "trio", label: "3 screens" },
+];
+
+const SHADOWS: { id: ShadowMode; label: string }[] = [
+  { id: "none", label: "None" },
+  { id: "spread", label: "Spread" },
+  { id: "hug", label: "Hug" },
+  { id: "adaptive", label: "Adaptive" },
+];
+
+function ScreensSection({ actions }: PanelProps) {
+  const count = useEditor((s) => SLOT_COUNT[s.doc.layout.kind]);
+  const media = useEditor((s) => s.doc.media);
+  return (
+    <Section title="Screens">
+      <ul className="flex flex-col gap-1">
+        {Array.from({ length: count }, (_, i) => {
+          const filled = i < media.length;
+          const canFill = i <= media.length;
+          return (
+            <li key={i} className="flex items-center justify-between rounded-md border border-white/10 px-2 py-1.5 text-xs">
+              <span className="text-neutral-300">
+                Screen {i + 1} <span className="text-neutral-500">{filled ? "· image set" : "· empty"}</span>
+              </span>
+              <button
+                type="button"
+                disabled={!canFill}
+                onClick={() => actions.pickScreenImage(i)}
+                className="rounded-md bg-white/10 px-2 py-1 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                title={canFill ? undefined : `Add screen ${i} first`}
+              >
+                {filled ? "Replace" : "Add image"}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-xs text-neutral-500">You can also drop an image onto a screen on the canvas.</p>
+    </Section>
+  );
+}
+
+export function StylePanel({ actions }: PanelProps) {
   const frame = useEditor((s) => s.doc.frame);
   const shot = useEditor((s) => s.doc.shot);
+  const layout = useEditor((s) => s.doc.layout.kind);
+  const device = isDeviceFrame(frame.style);
   return (
     <>
+      <Section title="Layout">
+        <Segmented label="Layout" value={layout} options={LAYOUTS} onChange={(kind) => update((d) => void (d.layout.kind = kind))} />
+      </Section>
+      <ScreensSection actions={actions} />
       <Section title="Frame">
-        <Segmented
-          label="Frame style"
-          value={frame.style}
-          options={FRAMES}
-          onChange={(style) => update((d) => void (d.frame.style = style))}
-        />
+        <Segmented label="Window frame" value={device ? ("" as FrameStyle) : frame.style} options={WINDOW_FRAMES} onChange={(style) => update((d) => void (d.frame.style = style))} />
+        <div className="grid grid-cols-3 gap-2">
+          {DEVICE_LIST.map((dv) => (
+            <button
+              key={dv.id}
+              type="button"
+              aria-pressed={frame.style === dv.id}
+              onClick={() => update((d) => void (d.frame.style = dv.id))}
+              className={`rounded-lg border px-2 py-2 text-xs transition ${
+                frame.style === dv.id ? "border-orange-500 bg-orange-500/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
+              }`}
+            >
+              {dv.label}
+            </button>
+          ))}
+        </div>
         {frame.style !== "none" && (
-          <Toggle label="Dark frame" checked={frame.dark} onChange={(v) => update((d) => void (d.frame.dark = v))} />
+          <Toggle label={device ? "Black finish" : "Dark frame"} checked={frame.dark} onChange={(v) => update((d) => void (d.frame.dark = v))} />
         )}
         {(frame.style === "browser" || frame.style === "safari") && (
           <TextField label="Address" value={frame.url} onChange={(v) => update((d) => void (d.frame.url = v), "frame-url")} />
@@ -169,8 +278,15 @@ export function StylePanel() {
           format={(v) => `${(v * 100).toFixed(1)}%`}
           onChange={(v) => update((d) => void (d.shot.padding = v), "padding")}
         />
-        <Slider label="Corner radius" value={shot.radius} min={0} max={60} onChange={(v) => update((d) => void (d.shot.radius = v), "radius")} />
-        <Slider label="Shadow" value={shot.shadow} min={0} max={100} onChange={(v) => update((d) => void (d.shot.shadow = v), "shadow")} />
+        {!device && (
+          <Slider label="Corner radius" value={shot.radius} min={0} max={60} onChange={(v) => update((d) => void (d.shot.radius = v), "radius")} />
+        )}
+      </Section>
+      <Section title="Shadow">
+        <Segmented label="Shadow style" value={shot.shadowMode} options={SHADOWS} onChange={(m) => update((d) => void (d.shot.shadowMode = m))} />
+        {shot.shadowMode !== "none" && (
+          <Slider label="Strength" value={shot.shadow} min={0} max={100} onChange={(v) => update((d) => void (d.shot.shadow = v), "shadow")} />
+        )}
       </Section>
     </>
   );

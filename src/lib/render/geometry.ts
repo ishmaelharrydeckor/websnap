@@ -1,5 +1,7 @@
 import type { DesignDocument, Layer, LayerType } from "../document/types";
-import { computeContentRect, type Rect } from "./layout";
+import { computeContentRect, computeLayout, slotOfLayer, type ImageSize, type Rect } from "./layout";
+
+export type ScreenSizes = (ImageSize | undefined)[];
 
 export type LayerSpace = "shot" | "canvas";
 
@@ -41,13 +43,30 @@ export const TOOLS: { id: Tool; label: string; key: string }[] = [
 
 const CANVAS_RECT = (doc: DesignDocument): Rect => ({ x: 0, y: 0, width: doc.canvas.width, height: doc.canvas.height });
 
-/** The rectangle (canvas px) that a layer's normalised coordinates are relative to. */
-export function spaceRect(doc: DesignDocument, space: LayerSpace, imageSize?: { width: number; height: number }): Rect {
-  return space === "canvas" ? CANVAS_RECT(doc) : computeContentRect(doc, imageSize?.width, imageSize?.height);
+/** The rectangle (canvas px) that normalised coordinates in a space are relative to. For "shot", `slot` picks the screen. */
+export function spaceRect(doc: DesignDocument, space: LayerSpace, sizes: ScreenSizes = [], slot = 0): Rect {
+  return space === "canvas" ? CANVAS_RECT(doc) : computeContentRect(doc, sizes, slot);
 }
 
-export function layerRect(doc: DesignDocument, layer: Layer, imageSize?: { width: number; height: number }): Rect {
-  return spaceRect(doc, LAYER_SPACE[layer.type], imageSize);
+export function layerRect(doc: DesignDocument, layer: Layer, sizes: ScreenSizes = []): Rect {
+  const space = LAYER_SPACE[layer.type];
+  if (space === "canvas") return CANVAS_RECT(doc);
+  return computeContentRect(doc, sizes, slotOfLayer(layer, computeLayout(doc, sizes).slots.length));
+}
+
+/** Which screen a canvas-px point is closest to (by horizontal distance to each screen's frame). */
+export function slotAt(doc: DesignDocument, sizes: ScreenSizes, x: number): number {
+  const { slots } = computeLayout(doc, sizes);
+  let best = 0;
+  let bestDist = Infinity;
+  slots.forEach((s, i) => {
+    const d = x < s.frame.x ? s.frame.x - x : x > s.frame.x + s.frame.width ? x - (s.frame.x + s.frame.width) : 0;
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
+    }
+  });
+  return best;
 }
 
 const px = (rect: Rect, nx: number, ny: number): [number, number] => [rect.x + nx * rect.width, rect.y + ny * rect.height];
@@ -157,6 +176,8 @@ const RED = "#ff3b30";
 
 export interface CreateOptions {
   id: string;
+  /** Screen a screenshot effect belongs to (0 when omitted). */
+  slot?: number;
   /** Next step number, for the steps tool. */
   stepNumber?: number;
   /** Raw drag path (normalised), for the draw tool. */
@@ -167,7 +188,7 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 /** Builds a new layer from a tool and a drag from `a` to `b` (normalised). Returns null if the gesture is too small to mean anything. */
 export function createLayer(tool: Exclude<Tool, "select">, a: [number, number], b: [number, number], opts: CreateOptions): Layer | null {
-  const base = { id: opts.id, visible: true };
+  const base = { id: opts.id, visible: true, ...(opts.slot ? { slot: opts.slot } : {}) };
   const w = Math.abs(b[0] - a[0]);
   const h = Math.abs(b[1] - a[1]);
   const clicked = w < 0.01 && h < 0.01;
@@ -217,11 +238,11 @@ export function toNormalized(rect: Rect, x: number, y: number): [number, number]
 }
 
 /** Topmost visible layer under a canvas-px point. Canvas layers sit above shot layers. */
-export function pickLayer(doc: DesignDocument, x: number, y: number, imageSize?: { width: number; height: number }): Layer | undefined {
+export function pickLayer(doc: DesignDocument, x: number, y: number, sizes: ScreenSizes = []): Layer | undefined {
   const order = [...doc.layers.filter((l) => LAYER_SPACE[l.type] === "shot"), ...doc.layers.filter((l) => LAYER_SPACE[l.type] === "canvas")];
   for (let i = order.length - 1; i >= 0; i--) {
     const l = order[i];
-    if (hitTest(l, layerRect(doc, l, imageSize), x, y)) return l;
+    if (hitTest(l, layerRect(doc, l, sizes), x, y)) return l;
   }
   return undefined;
 }

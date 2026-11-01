@@ -3,6 +3,7 @@ import { createDefaultDocument } from "../document/defaults";
 import { EMPTY_BRAND, type Brand } from "../brand/brand";
 import type { DesignDocument, Layer, MediaItem } from "../document/types";
 import type { Tool } from "../render/geometry";
+import { SLOT_COUNT } from "../render/layout";
 import type { RenderableImage } from "../render/render";
 
 const HISTORY_LIMIT = 100;
@@ -39,7 +40,11 @@ export interface EditorState {
    * undo step. Keys starting with "drag:" coalesce regardless of timing (for the length of one pointer drag).
    */
   update: (recipe: (draft: DesignDocument) => void, coalesceKey?: string) => void;
-  setImage: (image: LoadedImage) => void;
+  /**
+   * Puts an image on a screen. With no slot it fills the next empty screen, or replaces the first one when all are full.
+   * A slot past the end is clamped so the media list never has holes.
+   */
+  setImage: (image: LoadedImage, slot?: number) => void;
   setTool: (tool: Tool) => void;
   select: (id: string | null) => void;
   /** Adds a layer on top, selects it and returns to the select tool. */
@@ -88,7 +93,7 @@ export function createEditorStore() {
       });
     },
 
-    setImage: (image) => {
+    setImage: (image, slot) => {
       const item: MediaItem = {
         id: image.id,
         kind: "image",
@@ -99,7 +104,8 @@ export function createEditorStore() {
       lastKey = undefined;
       set((s) => ({ images: { ...s.images, [image.id]: image } }));
       get().update((d) => {
-        d.media = [item];
+        const wanted = slot ?? (d.media.length < SLOT_COUNT[d.layout.kind] ? d.media.length : 0);
+        d.media[Math.max(0, Math.min(wanted, d.media.length))] = item;
       });
     },
 
@@ -184,10 +190,15 @@ export function primaryImage(state: Pick<EditorState, "doc" | "images">): Loaded
   return item ? state.images[item.assetId] : undefined;
 }
 
+/** The loaded image for each media item, in screen order (undefined while an image is still loading). */
+export function screenImages(state: Pick<EditorState, "doc" | "images">): (LoadedImage | undefined)[] {
+  return state.doc.media.map((m) => state.images[m.assetId]);
+}
+
 /** Everything the renderer needs besides the document: the screenshot and the images used by image layers. */
-export function renderInputFor(state: Pick<EditorState, "doc" | "images">): { image?: RenderableImage; images: Record<string, RenderableImage> } {
+export function renderInputFor(state: Pick<EditorState, "doc" | "images">): { screens: (RenderableImage | undefined)[]; images: Record<string, RenderableImage> } {
   return {
-    image: primaryImage(state)?.source,
+    screens: screenImages(state).map((i) => i?.source),
     images: Object.fromEntries(Object.values(state.images).map((i) => [i.id, i.source])),
   };
 }

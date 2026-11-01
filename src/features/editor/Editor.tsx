@@ -39,6 +39,8 @@ export function Editor() {
   const [commands, setCommands] = useState<Command[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const layerFileInput = useRef<HTMLInputElement>(null);
+  const slotFileInput = useRef<HTMLInputElement>(null);
+  const pendingSlot = useRef(0);
 
   const canUndo = useEditor((s) => s.past.length > 0);
   const canRedo = useEditor((s) => s.future.length > 0);
@@ -51,9 +53,9 @@ export function Editor() {
   }, []);
 
   const importBlob = useCallback(
-    async (blob: Blob) => {
+    async (blob: Blob, slot?: number) => {
       try {
-        editorStore.getState().setImage(await blobToLoadedImage(blob));
+        editorStore.getState().setImage(await blobToLoadedImage(blob), slot);
       } catch {
         notify("That file couldn't be read as an image.");
       }
@@ -200,6 +202,18 @@ export function Editor() {
           }}
         />
         <input
+          ref={slotFileInput}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp"
+          className="hidden"
+          data-testid="slot-file-input"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void importBlob(f, pendingSlot.current);
+            e.target.value = "";
+          }}
+        />
+        <input
           ref={layerFileInput}
           type="file"
           accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,image/svg+xml"
@@ -284,7 +298,15 @@ export function Editor() {
             ))}
           </nav>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <Active actions={{ addImage: () => layerFileInput.current?.click() }} />
+            <Active
+              actions={{
+                addImage: () => layerFileInput.current?.click(),
+                pickScreenImage: (slot) => {
+                  pendingSlot.current = slot;
+                  slotFileInput.current?.click();
+                },
+              }}
+            />
           </div>
         </aside>
 
@@ -303,7 +325,12 @@ export function Editor() {
             else notify("Drop an image file (PNG, JPG, WebP).");
           }}
         >
-          <Stage />
+          <Stage
+            onDropFile={(file, slot) => {
+              setDragging(false);
+              void importBlob(file, slot);
+            }}
+          />
           {!hasImage && (
             <p className="pointer-events-none absolute bottom-4 text-xs text-neutral-500">
               Paste with Ctrl/⌘ V, drop a file, or use the buttons above.

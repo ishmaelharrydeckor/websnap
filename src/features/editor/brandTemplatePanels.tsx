@@ -7,7 +7,7 @@ import { applyTemplate, TEMPLATES, type Template } from "@/lib/assets/templates"
 import { applyBrand, MAX_BRAND_COLORS, type ApplyBrandOptions } from "@/lib/brand/brand";
 import { renderDocument } from "@/lib/render/render";
 import { Section, Segmented, TextField } from "./controls";
-import { editorStore, primaryImage, useEditor } from "./store";
+import { editorStore, renderInputFor, useEditor } from "./store";
 
 const THUMB_WIDTH = 320;
 
@@ -15,7 +15,8 @@ function TemplateThumb({ template }: { template: Template }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const { width, height } = useEditor((s) => s.doc.canvas);
   const font = useEditor((s) => s.doc.font);
-  const imageId = useEditor((s) => primaryImage(s)?.id);
+  const mediaKey = useEditor((s) => s.doc.media.map((m) => m.assetId).join(","));
+  const layout = useEditor((s) => s.doc.layout.kind);
   const headline = useEditor((s) => s.doc.headline.text);
   const frameUrl = useEditor((s) => s.doc.frame.url);
 
@@ -29,9 +30,9 @@ function TemplateThumb({ template }: { template: Template }) {
     applyTemplate(doc, template);
     ctx.save();
     ctx.scale(THUMB_WIDTH / doc.canvas.width, THUMB_WIDTH / doc.canvas.width);
-    renderDocument(ctx, doc, { image: primaryImage(state)?.source });
+    renderDocument(ctx, doc, { screens: renderInputFor(state).screens });
     ctx.restore();
-  }, [template, width, height, font, imageId, headline, frameUrl]);
+  }, [template, width, height, font, mediaKey, layout, headline, frameUrl]);
 
   const thumbHeight = Math.round((THUMB_WIDTH * height) / width);
   return (

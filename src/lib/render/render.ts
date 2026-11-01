@@ -1,15 +1,17 @@
+import { DEVICES, isDeviceFrame } from "../assets/devices";
 import { fontStack } from "../assets/fonts";
 import { getWallpaper } from "../assets/wallpapers";
 import type { Background, DesignDocument, Layer } from "../document/types";
+import { averageColor, mix, withAlpha } from "./color";
 import { LAYER_SPACE } from "./geometry";
 import { drawCanvasLayer, drawShotLayer, type RenderableImage } from "./layers";
-import { computeLayout, FRAME_BAR_HEIGHT, PLACEHOLDER_SIZE, type Rect } from "./layout";
+import { computeLayout, coverRect, FRAME_BAR_HEIGHT, slotOfLayer, type Rect, type Slot } from "./layout";
 
 export type { RenderableImage };
 
 export interface RenderInput {
-  /** The user's screenshot. When absent, a placeholder is drawn. */
-  image?: RenderableImage;
+  /** The screenshot for each screen, in order. Missing entries draw a placeholder. */
+  screens?: (RenderableImage | undefined)[];
   /** Decoded images for image layers, keyed by assetId. */
   images?: Record<string, RenderableImage>;
   /** A layer being drawn right now (not yet in the document). */
@@ -26,6 +28,18 @@ function fillBackground(ctx: CanvasRenderingContext2D, bg: Background, w: number
       return;
     }
     ctx.fillStyle = "#222222";
+  } else if (bg.kind === "mesh") {
+    ctx.fillStyle = bg.base;
+    ctx.fillRect(0, 0, w, h);
+    const s = Math.max(w, h);
+    for (const b of bg.blobs) {
+      const g = ctx.createRadialGradient(b.x * w, b.y * h, 0, b.x * w, b.y * h, b.r * s);
+      g.addColorStop(0, withAlpha(b.color, 0.85));
+      g.addColorStop(1, withAlpha(b.color, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+    }
+    return;
   } else if (bg.kind === "solid") {
     ctx.fillStyle = bg.color;
   } else {
@@ -42,7 +56,7 @@ function fillBackground(ctx: CanvasRenderingContext2D, bg: Background, w: number
   ctx.fillRect(0, 0, w, h);
 }
 
-function roundedRectPath(ctx: CanvasRenderingContext2D, r: Rect, radius: number) {
+export function roundedRectPath(ctx: CanvasRenderingContext2D, r: Rect, radius: number) {
   const rr = Math.max(0, Math.min(radius, r.width / 2, r.height / 2));
   ctx.beginPath();
   ctx.moveTo(r.x + rr, r.y);
@@ -117,63 +131,134 @@ function drawWatermark(ctx: CanvasRenderingContext2D, doc: DesignDocument) {
   ctx.restore();
 }
 
+/** Sets the canvas shadow for a screen according to the document's shadow mode. */
+function applyShadow(ctx: CanvasRenderingContext2D, doc: DesignDocument, screen: RenderableImage | undefined): boolean {
+  const { shadow, shadowMode } = doc.shot;
+  if (shadowMode === "none" || shadow <= 0) return false;
+  const k = shadow / 100;
+  // Shadow geometry is in device pixels and ignores the transform, so scale it for exports at 2x.
+  const px = ctx.getTransform().a || 1;
+  let color: string;
+  let blur: number;
+  let offset: number;
+  if (shadowMode === "hug") {
+    color = `rgba(0,0,0,${0.7 * k})`;
+    blur = 18 * k + 2;
+    offset = 6 * k;
+  } else if (shadowMode === "adaptive") {
+    // Tinted by the screenshot, so the shadow feels like it belongs to the picture.
+    const tint = screen ? mix(averageColor(screen), "#000000", 0.35) : "#000000";
+    color = withAlpha(tint, 0.8 * k);
+    blur = 90 * k;
+    offset = 36 * k;
+  } else {
+    color = `rgba(0,0,0,${0.55 * k})`;
+    blur = 80 * k;
+    offset = 28 * k;
+  }
+  ctx.shadowColor = color;
+  ctx.shadowBlur = blur * px;
+  ctx.shadowOffsetY = offset * px;
+  return true;
+}
+
+function drawPlaceholder(ctx: CanvasRenderingContext2D, doc: DesignDocument, content: Rect) {
+  ctx.fillStyle = doc.frame.dark ? "#232326" : "#f6f6f8";
+  ctx.fillRect(content.x, content.y, content.width, content.height);
+  ctx.fillStyle = "#8a8a93";
+  const size = Math.max(12, Math.min(30, content.width / 16));
+  ctx.font = `500 ${size}px system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const cx = content.x + content.width / 2;
+  const cy = content.y + content.height / 2;
+  ctx.fillText("Drop, paste, or import", cx, cy - size * 0.7);
+  ctx.fillText("a screenshot", cx, cy + size * 0.7);
+}
+
+function drawSlot(
+  ctx: CanvasRenderingContext2D,
+  doc: DesignDocument,
+  slot: Slot,
+  screen: RenderableImage | undefined,
+  shotLayers: Layer[],
+) {
+  const { frame, content } = slot;
+  const style = doc.frame.style;
+  const device = isDeviceFrame(style) ? DEVICES[style] : undefined;
+  const bar = FRAME_BAR_HEIGHT[style];
+
+  // Shadow cast by the whole window or device.
+  ctx.save();
+  if (applyShadow(ctx, doc, screen)) {
+    if (device) {
+      ctx.beginPath();
+      device.outline(ctx, frame);
+    } else {
+      roundedRectPath(ctx, frame, doc.shot.radius);
+    }
+    ctx.fillStyle = doc.frame.dark ? "#1c1c1f" : "#ffffff";
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Where the whole image lands: stretched into windows (which match its aspect), cover-fitted into device screens.
+  const imageRect = screen && device ? coverRect(content, screen) : content;
+
+  ctx.save();
+  if (device) {
+    device.drawBody(ctx, frame, doc.frame.dark);
+    roundedRectPath(ctx, content, slot.contentRadius);
+  } else {
+    roundedRectPath(ctx, frame, doc.shot.radius);
+    ctx.clip();
+    ctx.fillStyle = doc.frame.dark ? "#1c1c1f" : "#ffffff";
+    ctx.fill();
+    if (bar > 0) drawTitleBar(ctx, doc, frame, bar);
+    ctx.beginPath();
+    ctx.rect(content.x, content.y, content.width, content.height);
+  }
+  ctx.clip();
+
+  if (screen) ctx.drawImage(screen, imageRect.x, imageRect.y, imageRect.width, imageRect.height);
+  else drawPlaceholder(ctx, doc, content);
+
+  // Effects and annotations that belong to the screenshot are clipped to its screen.
+  const src = screen ? { image: screen, rect: imageRect } : undefined;
+  for (const l of shotLayers) drawShotLayer(ctx, l, content, src);
+  ctx.restore();
+
+  if (device?.drawOverlay) {
+    ctx.save();
+    device.drawOverlay(ctx, frame, doc.frame.dark);
+    ctx.restore();
+  }
+}
+
 /** Draws a document onto a canvas context sized to doc.canvas. Used for preview and export. */
 export function renderDocument(ctx: CanvasRenderingContext2D, doc: DesignDocument, input: RenderInput = {}) {
   const { width: cw, height: ch } = doc.canvas;
   ctx.clearRect(0, 0, cw, ch);
   fillBackground(ctx, doc.background, cw, ch);
 
-  const img = input.image;
-  const { frame: rect, headline } = computeLayout(
+  const screens = input.screens ?? [];
+  const { slots, headline } = computeLayout(
     doc,
-    img?.width ?? PLACEHOLDER_SIZE.width,
-    img?.height ?? PLACEHOLDER_SIZE.height,
+    screens.map((s) => (s ? { width: s.width, height: s.height } : undefined)),
   );
-  const bar = FRAME_BAR_HEIGHT[doc.frame.style];
 
   if (headline) drawHeadline(ctx, doc, headline);
 
-  // Shadow + window body
-  ctx.save();
-  ctx.shadowColor = `rgba(0,0,0,${(doc.shot.shadow / 100) * 0.55})`;
-  ctx.shadowBlur = (doc.shot.shadow / 100) * 80;
-  ctx.shadowOffsetY = (doc.shot.shadow / 100) * 28;
-  roundedRectPath(ctx, rect, doc.shot.radius);
-  ctx.fillStyle = doc.frame.dark ? "#1c1c1f" : "#ffffff";
-  ctx.fill();
-  ctx.restore();
-
-  ctx.save();
-  roundedRectPath(ctx, rect, doc.shot.radius);
-  ctx.clip();
-
-  if (bar > 0) drawTitleBar(ctx, doc, rect, bar);
-
-  const content: Rect = { x: rect.x, y: rect.y + bar, width: rect.width, height: rect.height - bar };
-  if (img) {
-    ctx.drawImage(img, content.x, content.y, content.width, content.height);
-  } else {
-    ctx.fillStyle = doc.frame.dark ? "#232326" : "#f6f6f8";
-    ctx.fillRect(content.x, content.y, content.width, content.height);
-    ctx.fillStyle = "#8a8a93";
-    ctx.font = "500 28px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("Drop, paste, or import a screenshot", content.x + content.width / 2, content.y + content.height / 2);
-  }
-
-  // Effects and annotations that belong to the screenshot are clipped to it.
-  const layers = input.draft ? [...doc.layers, input.draft] : doc.layers;
-  const src = img ? { image: img, rect: content } : undefined;
-  for (const l of layers) {
-    if (l.visible && LAYER_SPACE[l.type] === "shot") drawShotLayer(ctx, l, content, src);
-  }
-  ctx.restore();
+  const layers = (input.draft ? [...doc.layers, input.draft] : doc.layers).filter((l) => l.visible);
+  slots.forEach((slot, i) => {
+    const shotLayers = layers.filter((l) => LAYER_SPACE[l.type] === "shot" && slotOfLayer(l, slots.length) === i);
+    drawSlot(ctx, doc, slot, screens[i], shotLayers);
+  });
 
   // Shapes, text and images sit on top of everything, anywhere on the canvas.
   const canvasRect: Rect = { x: 0, y: 0, width: cw, height: ch };
   for (const l of layers) {
-    if (l.visible && LAYER_SPACE[l.type] === "canvas") drawCanvasLayer(ctx, l, canvasRect, input.images, fontStack(doc.font));
+    if (LAYER_SPACE[l.type] === "canvas") drawCanvasLayer(ctx, l, canvasRect, input.images, fontStack(doc.font));
   }
 
   if (doc.watermark.show && doc.watermark.text.trim()) drawWatermark(ctx, doc);
