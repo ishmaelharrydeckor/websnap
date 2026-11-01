@@ -1,10 +1,10 @@
 "use client";
 
 import type { Layer } from "@/lib/document/types";
-import { TOOLS } from "@/lib/render/geometry";
+import { canAnchor, screenForLayer, setAnchor, TOOLS } from "@/lib/render/geometry";
 import { Section, Slider, TextField, Toggle } from "./controls";
 import type { PanelProps } from "./panelTypes";
-import { editorStore, useEditor } from "./store";
+import { editorStore, screenImages, useEditor } from "./store";
 
 const STICKERS = ["🚀", "✨", "🔥", "👀", "✅", "❤️", "🎉", "⚡", "📈", "💯", "👉", "🤯", "⭐", "💡", "🙌", "👇"];
 
@@ -142,6 +142,20 @@ export function Inspector() {
 
   return (
     <Section title={`Selected: ${describe(layer)}`}>
+      {canAnchor(layer.type) && (
+        <div>
+          <Toggle
+            label="Attach to screen"
+            checked={layer.anchor !== undefined}
+            onChange={(on) => {
+              const { doc } = editorStore.getState();
+              const sizes = screenImages(editorStore.getState()).map((i) => (i ? { width: i.width, height: i.height } : undefined));
+              editorStore.getState().updateLayer(layer.id, (l) => setAnchor(doc, l, sizes, on ? screenForLayer(doc, l, sizes) : undefined));
+            }}
+          />
+          <p className="mt-1 text-xs text-neutral-500">Attached shapes stay put on the screenshot when you change the size, layout or tilt.</p>
+        </div>
+      )}
       {layer.type === "text" && <TextField label="Text" value={layer.text} onChange={(text) => set({ text }, "text")} />}
       {layer.type === "text" && <Slider label="Size" value={layer.size} min={20} max={240} onChange={(size) => set({ size }, "size")} />}
       {"color" in layer && <ColorField label="Color" value={layer.color} onChange={(color) => set({ color }, "color")} />}

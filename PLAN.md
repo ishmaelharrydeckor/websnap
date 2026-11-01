@@ -105,12 +105,13 @@ projection; shadow modes (none/spread/hug/adaptive); palette-based magic backgro
 8 more wallpapers; 5 new templates (iPhone, MacBook, Compare, Showcase, Isometric).
 Multi-size ZIP export: pick sizes, each is re-laid out (not stretched) with pixel sizes scaled
 proportionally; stored (uncompressed) ZIP written in-browser.
-Known limits:
-- Screenshot effects (blur, pixelate, ...) can't be positioned while a screen is tilted; set
-  Perspective to Flat to edit them (they still render tilted).
-- Shapes, arrows and text are positioned relative to the canvas, so in other export sizes they do
-  not stay attached to the same spot on the screenshot (only screenshot effects follow it).
-  Idea for later: anchor canvas layers to a screen.
+Polish (after the first Phase 3 pass): screens are mapped through an exact homography, so screenshot
+effects and shapes can be drawn, picked, moved and resized on a tilted screen (the selection outline
+tilts too). Shapes that start on a screen are attached to it (coordinates relative to its frame), so
+they keep their place on the screenshot across export sizes, layouts and tilts; the inspector has an
+"Attach to screen" toggle. Verified numerically across three export sizes.
+Remaining limits: text and numbered steps under tilt follow the screen's local rotation and scale but
+are not foreshortened; rounded rectangle corners become straight when tilted.
 
 ### Phase 4: Video and animation
 Screen recording; timeline editor (playhead, play/loop, media filmstrip track,

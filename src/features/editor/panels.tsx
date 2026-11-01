@@ -9,7 +9,7 @@ import { DEVICE_LIST, isDeviceFrame } from "@/lib/assets/devices";
 import { buildMesh, extractPalette, meshPalette } from "@/lib/assets/magic";
 import type { FrameStyle, LayoutKind, ShadowMode } from "@/lib/document/types";
 import { samplePixels } from "@/lib/render/color";
-import { isTilted, TILT_PRESETS } from "@/lib/render/perspective";
+import { TILT_PRESETS } from "@/lib/render/perspective";
 import { SLOT_COUNT } from "@/lib/render/layout";
 import type { PanelProps } from "./panelTypes";
 import { Section, Segmented, Slider, TextField, Toggle } from "./controls";
@@ -226,7 +226,6 @@ function TiltSection() {
       <Slider label="Pitch" value={tilt.x} min={-70} max={70} format={(v) => `${v}°`} onChange={(v) => set("x", v)} />
       <Slider label="Yaw" value={tilt.y} min={-70} max={70} format={(v) => `${v}°`} onChange={(v) => set("y", v)} />
       <Slider label="Roll" value={tilt.z} min={-60} max={60} format={(v) => `${v}°`} onChange={(v) => set("z", v)} />
-      {isTilted(tilt) && <p className="text-xs text-neutral-500">Blur, pixelate and other screenshot effects are edited with the screen flat.</p>}
     </Section>
   );
 }

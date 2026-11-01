@@ -86,6 +86,11 @@ interface LayerBase {
   visible: boolean;
   /** Which screen a screenshot effect belongs to (0-based). Ignored for canvas layers. Defaults to 0. */
   slot?: number;
+  /**
+   * Canvas layers only (not images): when set, coordinates are relative to this screen's frame instead of the
+   * canvas, so the layer stays attached to the screenshot when the size, layout or tilt changes.
+   */
+  anchor?: number;
 }
 
 /**

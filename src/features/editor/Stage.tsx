@@ -4,26 +4,28 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { firstImageFrom } from "@/features/capture/import";
 import type { Layer } from "@/lib/document/types";
 import {
+  canAnchor,
   createLayer,
   LAYER_SPACE,
   layerBoundsPx,
   layerHandles,
-  layerRect,
+  layerSpaceInfo,
   pickLayer,
   resizeLayer,
-  slotAt,
-  spaceRect,
+  screenContaining,
+  slotAtPoint,
   toNormalized,
   translateLayer,
   type HandleId,
+  type SpaceSpec,
   type Tool,
 } from "@/lib/render/geometry";
-import { isTilted } from "@/lib/render/perspective";
+import type { Point } from "@/lib/render/perspective";
 import { renderDocument } from "@/lib/render/render";
 import { editorStore, screenImages, useEditor } from "./store";
 
 type Gesture =
-  | { kind: "create"; tool: Exclude<Tool, "select">; slot: number; start: [number, number]; path: [number, number][] }
+  | { kind: "create"; tool: Exclude<Tool, "select">; spec: SpaceSpec; start: [number, number]; path: [number, number][] }
   | { kind: "move"; id: string; last: [number, number]; key: string }
   | { kind: "resize"; id: string; handle: HandleId; key: string };
 
@@ -66,81 +68,85 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
   const scale = avail.width > 0 ? Math.min(avail.width / doc.canvas.width, avail.height / doc.canvas.height) : 0;
   const width = doc.canvas.width * scale;
   const height = doc.canvas.height * scale;
-  const tilted = isTilted(doc.tilt);
   const selected = doc.layers.find((l) => l.id === selectedId);
-  // A tilted screen is drawn in 3D, so its screenshot effects can't be positioned with the mouse until it is flat again.
-  const selectedOnTiltedScreen = tilted && selected !== undefined && LAYER_SPACE[selected.type] === "shot";
 
   /** Screenshot sizes read from the store at call time, so event handlers never see a stale list. */
   function screenSizes() {
     return screenImages(editorStore.getState()).map((i) => (i ? { width: i.width, height: i.height } : undefined));
   }
 
-  function toCanvas(e: { clientX: number; clientY: number }): [number, number] {
+  /** Pointer position in canvas pixels (what the user sees, i.e. after any tilt). */
+  function toCanvas(e: { clientX: number; clientY: number }): Point {
     const r = overlayRef.current!.getBoundingClientRect();
-    return [((e.clientX - r.left) / r.width) * doc.canvas.width, ((e.clientY - r.top) / r.height) * doc.canvas.height];
+    return { x: ((e.clientX - r.left) / r.width) * doc.canvas.width, y: ((e.clientY - r.top) / r.height) * doc.canvas.height };
+  }
+
+  /** A canvas-px point as 0-1 coordinates in a layer's own (flat, un-tilted) space. */
+  function normalizedIn(spec: SpaceSpec, p: Point): [number, number] {
+    const info = layerSpaceInfo(editorStore.getState().doc, spec, screenSizes());
+    const flat = info.transform.inverse(p);
+    return toNormalized(info.rect, flat.x, flat.y);
   }
 
   function onPointerDown(e: React.PointerEvent) {
     if (e.button !== 0) return;
-    const [x, y] = toCanvas(e);
+    const p = toCanvas(e);
     const store = editorStore.getState();
     const { tool: activeTool, selectedId: selId } = store.ui;
     overlayRef.current!.setPointerCapture(e.pointerId);
 
     if (activeTool !== "select") {
-      if (tilted && LAYER_SPACE[activeTool] === "shot") return;
       const sz = screenSizes();
-      const slot = LAYER_SPACE[activeTool] === "shot" ? slotAt(store.doc, sz, x) : 0;
-      const n = toNormalized(spaceRect(store.doc, LAYER_SPACE[activeTool], sz, slot), x, y);
-      gesture.current = { kind: "create", tool: activeTool, slot, start: n, path: [n] };
+      // Effects belong to the screen under the pointer; shapes attach to the screen they start on (if any).
+      const spec: SpaceSpec =
+        LAYER_SPACE[activeTool] === "shot"
+          ? { type: activeTool, slot: slotAtPoint(store.doc, sz, p) }
+          : { type: activeTool, anchor: canAnchor(activeTool) ? screenContaining(store.doc, sz, p) : undefined };
+      const n = normalizedIn(spec, p);
+      gesture.current = { kind: "create", tool: activeTool, spec, start: n, path: [n] };
       return;
     }
 
     const stamp = ++gestureCount.current;
     const sel = store.doc.layers.find((l) => l.id === selId);
     if (sel) {
-      const rect = layerRect(store.doc, sel, screenSizes());
-      const hit = layerHandles(sel, rect).find((h) => Math.hypot(h.x - x, h.y - y) <= HANDLE_HIT_PX / scale);
+      const info = layerSpaceInfo(store.doc, sel, screenSizes());
+      const hit = layerHandles(sel, info.rect).find((h) => {
+        const onCanvas = info.transform.forward(h);
+        return Math.hypot(onCanvas.x - p.x, onCanvas.y - p.y) <= HANDLE_HIT_PX / scale;
+      });
       if (hit) {
         gesture.current = { kind: "resize", id: sel.id, handle: hit.id, key: `drag:resize:${sel.id}:${stamp}` };
         return;
       }
     }
-    // Effects on a tilted screen are not drawn where their flat geometry says, so they can't be picked.
-    const pickable = tilted ? { ...store.doc, layers: store.doc.layers.filter((l) => LAYER_SPACE[l.type] === "canvas") } : store.doc;
-    const picked = pickLayer(pickable, x, y, screenSizes());
+    const picked = pickLayer(store.doc, p.x, p.y, screenSizes());
     store.select(picked?.id ?? null);
     if (picked) {
-      gesture.current = {
-        kind: "move",
-        id: picked.id,
-        last: toNormalized(layerRect(store.doc, picked, screenSizes()), x, y),
-        key: `drag:move:${picked.id}:${stamp}`,
-      };
+      gesture.current = { kind: "move", id: picked.id, last: normalizedIn(picked, p), key: `drag:move:${picked.id}:${stamp}` };
     }
   }
 
-  function draftFor(g: Extract<Gesture, { kind: "create" }>, n: [number, number]) {
+  function buildLayer(g: Extract<Gesture, { kind: "create" }>, n: [number, number], id: string) {
     const steps = editorStore.getState().doc.layers.filter((l) => l.type === "step").length;
-    return createLayer(g.tool, g.start, n, { id: "draft", slot: g.slot, stepNumber: steps + 1, path: g.path });
+    return createLayer(g.tool, g.start, n, { id, slot: g.spec.slot, anchor: g.spec.anchor, stepNumber: steps + 1, path: g.path });
   }
 
   function onPointerMove(e: React.PointerEvent) {
     const g = gesture.current;
     if (!g) return;
-    const [x, y] = toCanvas(e);
+    const p = toCanvas(e);
     const store = editorStore.getState();
 
     if (g.kind === "create") {
-      const n = toNormalized(spaceRect(store.doc, LAYER_SPACE[g.tool], screenSizes(), g.slot), x, y);
+      const n = normalizedIn(g.spec, p);
       if (g.tool === "draw") g.path.push(n);
-      if (g.tool !== "step" && g.tool !== "text") setDraft(draftFor(g, n) ?? undefined);
+      if (g.tool !== "step" && g.tool !== "text") setDraft(buildLayer(g, n, "draft") ?? undefined);
       return;
     }
     const layer = store.doc.layers.find((l) => l.id === g.id);
     if (!layer) return;
-    const n = toNormalized(layerRect(store.doc, layer, screenSizes()), x, y);
+    const n = normalizedIn(layer, p);
     if (g.kind === "move") {
       const [dx, dy] = [n[0] - g.last[0], n[1] - g.last[1]];
       g.last = n;
@@ -155,18 +161,26 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
     gesture.current = null;
     if (overlayRef.current?.hasPointerCapture(e.pointerId)) overlayRef.current.releasePointerCapture(e.pointerId);
     if (g?.kind !== "create") return;
-    const [x, y] = toCanvas(e);
-    const store = editorStore.getState();
-    const n = toNormalized(spaceRect(store.doc, LAYER_SPACE[g.tool], screenSizes(), g.slot), x, y);
-    const steps = store.doc.layers.filter((l) => l.type === "step").length;
-    const layer = createLayer(g.tool, g.start, n, { id: crypto.randomUUID(), slot: g.slot, stepNumber: steps + 1, path: g.path });
+    const layer = buildLayer(g, normalizedIn(g.spec, toCanvas(e)), crypto.randomUUID());
     setDraft(undefined);
+    const store = editorStore.getState();
     if (layer) store.addLayer(layer);
     else store.setTool("select");
   }
 
-  const bounds = selected && !selectedOnTiltedScreen ? layerBoundsPx(selected, layerRect(doc, selected, sizes)) : undefined;
-  const handles = selected && !selectedOnTiltedScreen ? layerHandles(selected, layerRect(doc, selected, sizes)) : [];
+  // The selection outline and handles are drawn where the layer appears, so on a tilted screen they are tilted too.
+  const selInfo = selected ? layerSpaceInfo(doc, selected, sizes) : undefined;
+  const bounds = selected && selInfo ? layerBoundsPx(selected, selInfo.rect) : undefined;
+  const outline =
+    bounds && selInfo
+      ? [
+          { x: bounds.x, y: bounds.y },
+          { x: bounds.x + bounds.width, y: bounds.y },
+          { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+          { x: bounds.x, y: bounds.y + bounds.height },
+        ].map((q) => selInfo.transform.forward(q))
+      : undefined;
+  const handles = selected && selInfo ? layerHandles(selected, selInfo.rect).map((h) => ({ id: h.id, ...selInfo.transform.forward(h) })) : [];
   const hs = 12 / (scale || 1);
 
   return (
@@ -179,11 +193,6 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
           data-testid="editor-canvas"
           className="block size-full rounded-lg shadow-2xl"
         />
-        {tilted && tool !== "select" && LAYER_SPACE[tool] === "shot" && (
-          <div role="status" className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 rounded-md bg-black/70 px-3 py-1 text-xs text-white">
-            Set Perspective to Flat to place this effect
-          </div>
-        )}
         <div
           ref={overlayRef}
           data-testid="stage-overlay"
@@ -198,20 +207,17 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
             if (!file || !onDropFile) return; // let the page-level handler report non-images
             e.preventDefault();
             e.stopPropagation();
-            onDropFile(file, slotAt(editorStore.getState().doc, screenSizes(), toCanvas(e)[0]));
+            onDropFile(file, slotAtPoint(editorStore.getState().doc, screenSizes(), toCanvas(e)));
           }}
           onPointerCancel={() => {
             gesture.current = null;
             setDraft(undefined);
           }}
         >
-          {bounds && (
+          {outline && (
             <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" viewBox={`0 0 ${doc.canvas.width} ${doc.canvas.height}`} preserveAspectRatio="none">
-              <rect
-                x={bounds.x}
-                y={bounds.y}
-                width={bounds.width}
-                height={bounds.height}
+              <polygon
+                points={outline.map((q) => `${q.x},${q.y}`).join(" ")}
                 fill="none"
                 stroke="#3b82f6"
                 strokeWidth={2 / (scale || 1)}

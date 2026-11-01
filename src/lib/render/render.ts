@@ -3,10 +3,10 @@ import { fontStack } from "../assets/fonts";
 import { getWallpaper } from "../assets/wallpapers";
 import type { Background, DesignDocument, Layer } from "../document/types";
 import { averageColor, makeCanvas, mix, withAlpha } from "./color";
-import { LAYER_SPACE } from "./geometry";
+import { canAnchor, LAYER_SPACE } from "./geometry";
 import { drawCanvasLayer, drawShotLayer, type RenderableImage } from "./layers";
 import { computeLayout, coverRect, FRAME_BAR_HEIGHT, slotOfLayer, type Rect, type Slot } from "./layout";
-import { drawProjected, fitScale, isTilted, projectedQuad, renderToOffscreen } from "./perspective";
+import { drawProjected, fitScale, isTilted, projectedQuad, renderToOffscreen, screenTransform } from "./perspective";
 
 export type { RenderableImage };
 
@@ -307,10 +307,18 @@ export function renderDocument(ctx: CanvasRenderingContext2D, doc: DesignDocumen
     drawSlot(ctx, doc, slot, screens[i], shotLayers);
   });
 
-  // Shapes, text and images sit on top of everything, anywhere on the canvas.
+  // Shapes, text and images sit on top of everything. Ones attached to a screen are placed relative to it
+  // (and tilt with it); the rest are placed anywhere on the canvas.
   const canvasRect: Rect = { x: 0, y: 0, width: cw, height: ch };
+  const transforms = slots.map((s) => screenTransform(s.frame, s.cell, doc.tilt));
   for (const l of layers) {
-    if (LAYER_SPACE[l.type] === "canvas") drawCanvasLayer(ctx, l, canvasRect, input.images, fontStack(doc.font));
+    if (LAYER_SPACE[l.type] !== "canvas") continue;
+    if (l.anchor !== undefined && canAnchor(l.type)) {
+      const i = Math.max(0, Math.min(l.anchor, slots.length - 1));
+      drawCanvasLayer(ctx, l, slots[i].frame, input.images, fontStack(doc.font), transforms[i]);
+    } else {
+      drawCanvasLayer(ctx, l, canvasRect, input.images, fontStack(doc.font));
+    }
   }
 
   if (doc.watermark.show && doc.watermark.text.trim()) drawWatermark(ctx, doc);

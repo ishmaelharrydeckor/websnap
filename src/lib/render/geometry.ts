@@ -1,5 +1,6 @@
 import type { DesignDocument, Layer, LayerType } from "../document/types";
-import { computeContentRect, computeLayout, slotOfLayer, type ImageSize, type Rect } from "./layout";
+import { computeLayout, slotOfLayer, type ImageSize, type Rect, type Slot } from "./layout";
+import { IDENTITY_TRANSFORM, screenTransform, slotQuad, isTilted, type Point, type ScreenTransform } from "./perspective";
 
 export type ScreenSizes = (ImageSize | undefined)[];
 
@@ -43,24 +44,98 @@ export const TOOLS: { id: Tool; label: string; key: string }[] = [
 
 const CANVAS_RECT = (doc: DesignDocument): Rect => ({ x: 0, y: 0, width: doc.canvas.width, height: doc.canvas.height });
 
+/** A layer's coordinate space: the rect its 0-1 coordinates are relative to, and how that (flat) space appears on the canvas. */
+export interface LayerSpaceInfo {
+  /** Flat rect (canvas px, before any tilt) that normalised coordinates refer to. */
+  rect: Rect;
+  /** Flat -> on-canvas. Identity unless the layer lives on a tilted screen. */
+  transform: ScreenTransform;
+  tilted: boolean;
+}
+
+/** The part of a layer that decides its space. A real layer, or the tool and screen of one about to be drawn. */
+export interface SpaceSpec {
+  type: LayerType;
+  slot?: number;
+  anchor?: number;
+}
+
+const clampSlot = (i: number, n: number) => Math.max(0, Math.min(i, n - 1));
+
+/** Whether a canvas layer type can be attached to a screen. Images (logos) always stay on the canvas. */
+export function canAnchor(type: LayerType): boolean {
+  return LAYER_SPACE[type] === "canvas" && type !== "image";
+}
+
+function slotTransform(doc: DesignDocument, slot: Slot): ScreenTransform {
+  return screenTransform(slot.frame, slot.cell, doc.tilt);
+}
+
+export function layerSpaceInfo(doc: DesignDocument, spec: SpaceSpec, sizes: ScreenSizes = []): LayerSpaceInfo {
+  const { slots } = computeLayout(doc, sizes);
+  const space = LAYER_SPACE[spec.type];
+  if (space === "shot") {
+    const slot = slots[slotOfLayer(spec, slots.length)];
+    const transform = slotTransform(doc, slot);
+    return { rect: slot.content, transform, tilted: transform !== IDENTITY_TRANSFORM };
+  }
+  if (spec.anchor !== undefined && canAnchor(spec.type)) {
+    const slot = slots[clampSlot(spec.anchor, slots.length)];
+    const transform = slotTransform(doc, slot);
+    return { rect: slot.frame, transform, tilted: transform !== IDENTITY_TRANSFORM };
+  }
+  return { rect: CANVAS_RECT(doc), transform: IDENTITY_TRANSFORM, tilted: false };
+}
+
 /** The rectangle (canvas px) that normalised coordinates in a space are relative to. For "shot", `slot` picks the screen. */
 export function spaceRect(doc: DesignDocument, space: LayerSpace, sizes: ScreenSizes = [], slot = 0): Rect {
-  return space === "canvas" ? CANVAS_RECT(doc) : computeContentRect(doc, sizes, slot);
+  return layerSpaceInfo(doc, { type: space === "canvas" ? "arrow" : "blur", slot }, sizes).rect;
 }
 
 export function layerRect(doc: DesignDocument, layer: Layer, sizes: ScreenSizes = []): Rect {
-  const space = LAYER_SPACE[layer.type];
-  if (space === "canvas") return CANVAS_RECT(doc);
-  return computeContentRect(doc, sizes, slotOfLayer(layer, computeLayout(doc, sizes).slots.length));
+  return layerSpaceInfo(doc, layer, sizes).rect;
 }
 
-/** Which screen a canvas-px point is closest to (by horizontal distance to each screen's frame). */
-export function slotAt(doc: DesignDocument, sizes: ScreenSizes, x: number): number {
+function slotPolygon(doc: DesignDocument, slot: Slot): Point[] {
+  const f = slot.frame;
+  if (isTilted(doc.tilt)) return [...slotQuad(f, slot.cell, doc.tilt)];
+  return [{ x: f.x, y: f.y }, { x: f.x + f.width, y: f.y }, { x: f.x + f.width, y: f.y + f.height }, { x: f.x, y: f.y + f.height }];
+}
+
+function inConvexPolygon(poly: Point[], p: Point): boolean {
+  let sign = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    if (cross === 0) continue;
+    const s = cross > 0 ? 1 : -1;
+    if (sign === 0) sign = s;
+    else if (s !== sign) return false;
+  }
+  return true;
+}
+
+/** The screen whose (possibly tilted) frame contains a canvas-px point, or undefined if it is on none of them. */
+export function screenContaining(doc: DesignDocument, sizes: ScreenSizes, p: Point): number | undefined {
+  const { slots } = computeLayout(doc, sizes);
+  // Later screens are drawn on top, so test them first.
+  for (let i = slots.length - 1; i >= 0; i--) if (inConvexPolygon(slotPolygon(doc, slots[i]), p)) return i;
+  return undefined;
+}
+
+/** The screen containing a point, or the nearest one by distance to its centre. */
+export function slotAtPoint(doc: DesignDocument, sizes: ScreenSizes, p: Point): number {
+  const inside = screenContaining(doc, sizes, p);
+  if (inside !== undefined) return inside;
   const { slots } = computeLayout(doc, sizes);
   let best = 0;
   let bestDist = Infinity;
   slots.forEach((s, i) => {
-    const d = x < s.frame.x ? s.frame.x - x : x > s.frame.x + s.frame.width ? x - (s.frame.x + s.frame.width) : 0;
+    const poly = slotPolygon(doc, s);
+    const cx = poly.reduce((n, q) => n + q.x, 0) / poly.length;
+    const cy = poly.reduce((n, q) => n + q.y, 0) / poly.length;
+    const d = Math.hypot(p.x - cx, p.y - cy);
     if (d < bestDist) {
       bestDist = d;
       best = i;
@@ -178,6 +253,8 @@ export interface CreateOptions {
   id: string;
   /** Screen a screenshot effect belongs to (0 when omitted). */
   slot?: number;
+  /** Screen a shape is attached to (canvas when omitted). */
+  anchor?: number;
   /** Next step number, for the steps tool. */
   stepNumber?: number;
   /** Raw drag path (normalised), for the draw tool. */
@@ -188,7 +265,12 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 /** Builds a new layer from a tool and a drag from `a` to `b` (normalised). Returns null if the gesture is too small to mean anything. */
 export function createLayer(tool: Exclude<Tool, "select">, a: [number, number], b: [number, number], opts: CreateOptions): Layer | null {
-  const base = { id: opts.id, visible: true, ...(opts.slot ? { slot: opts.slot } : {}) };
+  const base = {
+    id: opts.id,
+    visible: true,
+    ...(opts.slot ? { slot: opts.slot } : {}),
+    ...(opts.anchor !== undefined ? { anchor: opts.anchor } : {}),
+  };
   const w = Math.abs(b[0] - a[0]);
   const h = Math.abs(b[1] - a[1]);
   const clicked = w < 0.01 && h < 0.01;
@@ -237,12 +319,69 @@ export function toNormalized(rect: Rect, x: number, y: number): [number, number]
   return [(x - rect.x) / rect.width, (y - rect.y) / rect.height];
 }
 
-/** Topmost visible layer under a canvas-px point. Canvas layers sit above shot layers. */
+/** Topmost visible layer under a canvas-px point (works through tilt). Canvas layers sit above shot layers. */
 export function pickLayer(doc: DesignDocument, x: number, y: number, sizes: ScreenSizes = []): Layer | undefined {
   const order = [...doc.layers.filter((l) => LAYER_SPACE[l.type] === "shot"), ...doc.layers.filter((l) => LAYER_SPACE[l.type] === "canvas")];
   for (let i = order.length - 1; i >= 0; i--) {
     const l = order[i];
-    if (hitTest(l, layerRect(doc, l, sizes), x, y)) return l;
+    const info = layerSpaceInfo(doc, l, sizes);
+    const flat = info.transform.inverse({ x, y });
+    if (hitTest(l, info.rect, flat.x, flat.y)) return l;
   }
   return undefined;
+}
+
+type PointMap = (nx: number, ny: number) => [number, number];
+
+/** Applies a mapping to every normalised anchor point of a layer. Boxes map their two opposite corners. */
+export function mapLayerPoints(layer: Layer, f: PointMap): Layer {
+  switch (layer.type) {
+    case "arrow": {
+      const [x1, y1] = f(layer.x1, layer.y1);
+      const [x2, y2] = f(layer.x2, layer.y2);
+      return { ...layer, x1, y1, x2, y2 };
+    }
+    case "draw":
+      return { ...layer, points: layer.points.map(([x, y]) => f(x, y)) };
+    case "step":
+    case "text": {
+      const [x, y] = f(layer.x, layer.y);
+      return { ...layer, x, y };
+    }
+    case "rect":
+    case "ellipse": {
+      const [ax, ay] = f(layer.x, layer.y);
+      const [bx, by] = f(layer.x + layer.w, layer.y + layer.h);
+      return { ...layer, x: Math.min(ax, bx), y: Math.min(ay, by), w: Math.abs(bx - ax), h: Math.abs(by - ay) };
+    }
+    default:
+      return layer;
+  }
+}
+
+/**
+ * Attaches a shape to a screen (or detaches it with `undefined`) without moving it on the canvas:
+ * its points are re-expressed in the new space. Layers that can't be attached are returned unchanged.
+ */
+export function setAnchor(doc: DesignDocument, layer: Layer, sizes: ScreenSizes, anchor: number | undefined): Layer {
+  if (!canAnchor(layer.type)) return layer;
+  const before = layerSpaceInfo(doc, layer, sizes);
+  const next: Layer = { ...layer };
+  if (anchor === undefined) delete next.anchor;
+  else next.anchor = anchor;
+  const after = layerSpaceInfo(doc, next, sizes);
+  const remap: PointMap = (nx, ny) => {
+    const onCanvas = before.transform.forward({ x: before.rect.x + nx * before.rect.width, y: before.rect.y + ny * before.rect.height });
+    const flat = after.transform.inverse(onCanvas);
+    return [(flat.x - after.rect.x) / after.rect.width, (flat.y - after.rect.y) / after.rect.height];
+  };
+  return mapLayerPoints(next, remap);
+}
+
+/** The screen a shape's centre sits on, for attaching it. Falls back to the nearest screen. */
+export function screenForLayer(doc: DesignDocument, layer: Layer, sizes: ScreenSizes): number {
+  const info = layerSpaceInfo(doc, layer, sizes);
+  const b = layerBoundsPx(layer, info.rect);
+  const center = info.transform.forward({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
+  return slotAtPoint(doc, sizes, center);
 }
