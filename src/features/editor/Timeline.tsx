@@ -6,6 +6,7 @@ import type { AnimationClip } from "@/lib/document/types";
 import { TILT_PRESETS } from "@/lib/render/perspective";
 import { CLIP_LABELS, fitClips } from "@/lib/timeline/animation";
 import { removeSegment, segmentLength, segmentStarts, setSpeed, splitAt, trimSegment } from "@/lib/timeline/segments";
+import { SegmentArt } from "./SegmentArt";
 import { Slider } from "./controls";
 import { editorStore, useEditor } from "./store";
 
@@ -60,6 +61,8 @@ export function Timeline() {
   const duration = useEditor((s) => s.doc.timeline.duration);
   const segments = useEditor((s) => s.doc.timeline.segments);
   const sourceDuration = useEditor((s) => s.doc.media[0]?.duration ?? 0);
+  const sourceId = useEditor((s) => s.doc.media[0]?.assetId);
+  const sourceBlob = useEditor((s) => (s.doc.media[0] ? s.images[s.doc.media[0].assetId]?.blob : undefined));
   const selected = useEditor((s) => s.ui.selectedSegment);
   const clips = useEditor((s) => s.doc.timeline.clips);
   const selectedClipId = useEditor((s) => s.ui.selectedClip);
@@ -302,6 +305,7 @@ export function Timeline() {
               }`}
               style={{ left: `${(starts[i] / duration) * 100}%`, width: `calc(${(segmentLength(seg) / duration) * 100}% - 2px)` }}
             >
+              {sourceId && sourceBlob && <SegmentArt id={sourceId} blob={sourceBlob} duration={sourceDuration} segment={seg} />}
               <span
                 role="separator"
                 aria-label={`Trim start of segment ${i + 1}`}
@@ -309,7 +313,7 @@ export function Timeline() {
                 className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-white/30 hover:bg-white/60"
                 onPointerDown={(e) => onHandleDown(e, i, "start")}
               />
-              <span className="pointer-events-none truncate px-3 text-white/90">
+              <span className="pointer-events-none relative truncate px-3 text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,.8)]">
                 {i + 1}
                 {seg.speed !== 1 && <b className="ml-1 text-orange-200">{seg.speed}x</b>}
               </span>
