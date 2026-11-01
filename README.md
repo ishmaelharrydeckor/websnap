@@ -3,7 +3,7 @@
 Open-source screenshot and screen recording beautifier that runs in your browser.
 Turn a plain screenshot into a polished post or device mockup. No account, no upload.
 
-> Status: early development (Phase 1 done: image editor). See [PLAN.md](./PLAN.md) for the roadmap.
+> Status: early development (Phases 0-2 done: image editor with annotations, brand kit, templates and command palette). See [PLAN.md](./PLAN.md) for the roadmap.
 
 ## Develop
 
@@ -20,7 +20,10 @@ npm run build
 
 - `src/lib/document`: editor document schema and defaults
 - `src/lib/render`: canvas renderer shared by preview and export
-- `src/lib/assets`: size presets (wallpapers and device registry to come)
+- `src/lib/assets`: size presets, backgrounds, wallpapers, fonts, templates
+- `src/lib/brand`: brand kit logic
+- `src/lib/state`: editor store (undo/redo, layers, selection)
+- `src/lib/storage`, `src/lib/export`: local persistence and image export
 - `src/features/editor`: editor UI
 
 ## License

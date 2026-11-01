@@ -88,9 +88,15 @@ IndexedDB autosave. Not yet: Safari-specific details beyond the address pill, cu
 - Export PNG/JPG/WebP, copy to clipboard
 - Undo/redo, local save of designs
 
-### Phase 2: Annotations, layers, brand
-Arrow/shape/steps/draw; blur/pixelate/redact/highlight/spotlight/magnify; layers panel,
-snapping; brand kit; templates; Cmd+K.
+### Phase 2: Annotations, layers, brand (done)
+Shipped: arrow, rectangle, ellipse, numbered steps, freehand draw, text, stickers, image layers;
+blur, pixelate, redact, highlight, spotlight, magnify (stuck to the screenshot); on-canvas
+select/move/resize; layers panel (visibility, reorder, delete) and inspector; tool and
+nudge/delete shortcuts; brand kit (colors, logo, font, handle; saved locally); document-wide
+font; 8 starter templates; Cmd/Ctrl+K command palette.
+Deferred: snapping/alignment guides, multi-select, drag-to-reorder layers, duplicate layer,
+text editing directly on the canvas (text is edited in the inspector), Split/Compare/iPhone/
+MacBook templates (they need multi-image layouts and device frames from Phase 3).
 
 ### Phase 3: Mockups
 Device registry (iPhone, iPad, MacBook, browser), multi-device layouts, perspective/tilt,
@@ -107,7 +113,8 @@ effects (noise/VHS/glitch), 3D scenes, desktop/extension wrappers.
 
 ## Templates
 Templates are JSON documents in our own model that keep the user's content when swapped.
-Starter set (Phase 2): Hero, Split, Card, Compare, Browser, iPhone, MacBook, Minimal.
+Shipped in Phase 2 (style-only): Hero, Spotlight, Clean, Bold, Minimal, Soft, Ocean, Studio.
+Still to design (need Phase 3 features): Split, Compare, iPhone, MacBook, Card.
 Each social size gets its own layout rather than a stretched one.
 
 Inspiration sources (ideas only, never copied assets):

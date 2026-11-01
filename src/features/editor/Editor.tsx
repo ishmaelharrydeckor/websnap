@@ -5,6 +5,8 @@ import { blobToLoadedImage, captureScreenFrame, firstImageFrom } from "@/feature
 import { copyPng, downloadBlob, EXPORT_FORMATS, exportBlob, exportFileName, type ExportFormat } from "@/lib/export/exporter";
 import { TOOLS, translateLayer } from "@/lib/render/geometry";
 import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
+import { CommandPalette } from "./CommandPalette";
+import { buildCommands, type Command } from "./commands";
 import { InsertPanel, LayersPanel } from "./layerPanels";
 import { BackgroundPanel, CanvasPanel, StylePanel, TextPanel } from "./panels";
 import type { PanelProps } from "./panelTypes";
@@ -33,6 +35,8 @@ export function Editor() {
   const [scale, setScale] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Commands are built when the palette opens, so they always use the current handlers and export settings.
+  const [commands, setCommands] = useState<Command[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const layerFileInput = useRef<HTMLInputElement>(null);
 
@@ -142,6 +146,35 @@ export function Editor() {
     }
   }
 
+  function togglePalette() {
+    setCommands((open) =>
+      open
+        ? null
+        : buildCommands({
+            setTab,
+            upload: () => fileInput.current?.click(),
+            capture: () => void onCapture(),
+            addImage: () => layerFileInput.current?.click(),
+            download: () => void onExport(),
+            copy: () => void onCopy(),
+            setFormat,
+            setScale,
+          }),
+    );
+  }
+
+  // Ctrl/Cmd+K works everywhere, even in text fields. Re-registered every render so it sees current handlers.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        togglePalette();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const Active = TABS.find((t) => t.id === tab)!.panel;
 
   return (
@@ -191,6 +224,14 @@ export function Editor() {
           Redo
         </button>
         <span className="ml-3 text-xs text-neutral-500">{sizeLabel}</span>
+        <button
+          type="button"
+          className={`${btn} ml-2 border border-white/10 text-neutral-400 hover:text-white`}
+          onClick={() => !commands && togglePalette()}
+          aria-label="Open command palette"
+        >
+          Search <kbd className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-xs">Ctrl/⌘ K</kbd>
+        </button>
         <div className="ml-auto flex items-center gap-2">
           {message && (
             <span role="status" className="text-xs text-neutral-300">
@@ -270,6 +311,7 @@ export function Editor() {
           )}
         </main>
       </div>
+      {commands && <CommandPalette commands={commands} onClose={() => setCommands(null)} />}
     </div>
   );
 }
