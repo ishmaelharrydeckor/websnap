@@ -11,6 +11,7 @@ const ctx = () => ({
   download: vi.fn(),
   copy: vi.fn(),
   exportAll: vi.fn(),
+  exportVideo: vi.fn(),
   setFormat: vi.fn(),
   setScale: vi.fn(),
 });

@@ -9,6 +9,7 @@ import { removeSegment, splitAt } from "@/lib/timeline/segments";
 import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
 import { CommandPalette } from "./CommandPalette";
 import { ExportAllDialog } from "./ExportAllDialog";
+import { ExportVideoDialog } from "./ExportVideoDialog";
 import { buildCommands, type Command } from "./commands";
 import { InsertPanel, LayersPanel } from "./layerPanels";
 import { BackgroundPanel, CanvasPanel, StylePanel, TextPanel } from "./panels";
@@ -42,6 +43,7 @@ export function Editor() {
   const [message, setMessage] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [exportAllOpen, setExportAllOpen] = useState(false);
+  const [exportVideoOpen, setExportVideoOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0); // seconds into the current recording
   const recorder = useRef<RecorderHandle | null>(null);
@@ -210,6 +212,7 @@ export function Editor() {
             download: () => void onExport(),
             copy: () => void onCopy(),
             exportAll: () => setExportAllOpen(true),
+            exportVideo: () => setExportVideoOpen(true),
             setFormat,
             setScale,
           }),
@@ -347,6 +350,9 @@ export function Editor() {
           <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => setExportAllOpen(true)}>
             All sizes
           </button>
+          <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => setExportVideoOpen(true)}>
+            Video
+          </button>
           <button type="button" className={`${btn} bg-orange-500 text-white hover:bg-orange-400`} onClick={onExport}>
             Download
           </button>
@@ -410,6 +416,7 @@ export function Editor() {
         </main>
       </div>
       {timelineOpen && <Timeline />}
+      {exportVideoOpen && <ExportVideoDialog onClose={() => setExportVideoOpen(false)} onDone={notify} />}
       {exportAllOpen && <ExportAllDialog format={format} scale={scale} onClose={() => setExportAllOpen(false)} onDone={notify} />}
       {commands && <CommandPalette commands={commands} onClose={() => setCommands(null)} />}
     </div>

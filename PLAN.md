@@ -113,10 +113,21 @@ they keep their place on the screenshot across export sizes, layouts and tilts; 
 Remaining limits: text and numbered steps under tilt follow the screen's local rotation and scale but
 are not foreshortened; rounded rectangle corners become straight when tilted.
 
-### Phase 4: Video and animation
-Screen recording; timeline editor (playhead, play/loop, media filmstrip track,
-animations track, timeline zoom); trim/split/speed; zoom regions; captions; audio;
-Static/Parallax modes and zoom/tilt animation clips; MP4/WebM/GIF export.
+### Phase 4: Video and animation (in progress)
+Done:
+- Video as media: upload (mp4/webm/mov) or record the screen (with sound); playback synced to a clock, scrub,
+  looping; recordings made seekable; videos persist locally.
+- Timeline editing: split at the playhead, delete segments, speed 0.5x-16x, drag-to-trim; each edit is one
+  undo step and the timeline length follows.
+- Animations: zoom (with gliding between close zooms), parallax drift, tilt clips, and layers that appear on cue;
+  clips are dragged and resized on a track. Mouse editing pauses while a zoom/drift is in view.
+- Export (frame-accurate: every frame is rendered at its exact time, with each video seeked to its exact
+  frame): WebM (VP9, VP8 fallback), MP4 (H.264), GIF (shared palette, dithering, frame differencing).
+  Own WebM/MP4 muxers and GIF encoder, verified with ffprobe/ffmpeg; progress and cancel.
+Not verified here: MP4 export through the browser. The sandbox's Chromium has no H.264 encoder, so the
+MP4 muxer was checked with real ffmpeg H.264 (valid, correct frames, seeking) but the live WebCodecs
+H.264 path has not run. It is hidden when the browser can't encode H.264.
+Remaining: audio (keep the recording's sound, music track) - see below.
 
 ### Phase 5: Sharing and extras
 Upload + public links (self-hostable), screenshot-a-URL (headless browser service),
