@@ -15,6 +15,9 @@ export const FRAME_BAR_HEIGHT: Record<DesignDocument["frame"]["style"], number> 
   safari: 48,
 };
 
+/** Size assumed for the screenshot area before an image is loaded. */
+export const PLACEHOLDER_SIZE = { width: 1600, height: 1000 };
+
 export interface Layout {
   /** Chrome + screenshot, centred in the free area. */
   frame: Rect;
@@ -62,4 +65,11 @@ export function computeLayout(doc: DesignDocument, imageWidth: number, imageHeig
   }
   const frame: Rect = { x: (cw - w) / 2, y: areaY + (maxH - h) / 2, width: w, height: h };
   return { frame, headline };
+}
+
+/** The screenshot area (below the title bar) in canvas pixels. */
+export function computeContentRect(doc: DesignDocument, imageWidth?: number, imageHeight?: number): Rect {
+  const { frame } = computeLayout(doc, imageWidth ?? PLACEHOLDER_SIZE.width, imageHeight ?? PLACEHOLDER_SIZE.height);
+  const bar = FRAME_BAR_HEIGHT[doc.frame.style];
+  return { x: frame.x, y: frame.y + bar, width: frame.width, height: frame.height - bar };
 }

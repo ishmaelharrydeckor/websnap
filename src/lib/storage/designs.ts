@@ -1,3 +1,5 @@
+import { collectAssetIds } from "../document/assets";
+import { normalizeDocument } from "../document/migrate";
 import type { DesignDocument } from "../document/types";
 import { getRecord, putRecord } from "./db";
 
@@ -15,12 +17,13 @@ export async function saveCurrentDesign(doc: DesignDocument, blobs: Record<strin
 }
 
 export async function loadCurrentDesign(): Promise<SavedDesign | undefined> {
-  const doc = await getRecord<DesignDocument>("designs", CURRENT_KEY);
-  if (!doc || doc.version !== 1) return undefined;
+  const saved = await getRecord<DesignDocument>("designs", CURRENT_KEY);
+  if (!saved || saved.version !== 1) return undefined;
+  const doc = normalizeDocument(saved);
   const blobs: Record<string, Blob> = {};
-  for (const item of doc.media) {
-    const blob = await getRecord<Blob>("blobs", item.assetId);
-    if (blob) blobs[item.assetId] = blob;
+  for (const id of collectAssetIds(doc)) {
+    const blob = await getRecord<Blob>("blobs", id);
+    if (blob) blobs[id] = blob;
   }
   return { doc, blobs };
 }

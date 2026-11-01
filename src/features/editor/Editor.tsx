@@ -1,33 +1,37 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { blobToLoadedImage, captureScreenFrame, firstImageFrom } from "@/features/capture/import";
 import { copyPng, downloadBlob, EXPORT_FORMATS, exportBlob, exportFileName, type ExportFormat } from "@/lib/export/exporter";
-import { EditorCanvas } from "./EditorCanvas";
+import { TOOLS, translateLayer } from "@/lib/render/geometry";
+import { InsertPanel, LayersPanel } from "./layerPanels";
 import { BackgroundPanel, CanvasPanel, StylePanel, TextPanel } from "./panels";
-import { editorStore, primaryImage, useEditor } from "./store";
+import type { PanelProps } from "./panelTypes";
+import { Stage } from "./Stage";
+import { editorStore, primaryImage, renderInputFor, useEditor } from "./store";
 import { usePersistence } from "./usePersistence";
 
-const TABS = [
+const TABS: { id: string; label: string; panel: ComponentType<PanelProps> }[] = [
   { id: "canvas", label: "Canvas", panel: CanvasPanel },
-  { id: "background", label: "Background", panel: BackgroundPanel },
+  { id: "background", label: "Backdrop", panel: BackgroundPanel },
   { id: "style", label: "Style", panel: StylePanel },
   { id: "text", label: "Text", panel: TextPanel },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
+  { id: "insert", label: "Insert", panel: InsertPanel },
+  { id: "layers", label: "Layers", panel: LayersPanel },
+];
 
 const btn =
   "rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40";
 
 export function Editor() {
   usePersistence();
-  const [tab, setTab] = useState<TabId>("canvas");
+  const [tab, setTab] = useState("canvas");
   const [format, setFormat] = useState<ExportFormat>("png");
   const [scale, setScale] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const layerFileInput = useRef<HTMLInputElement>(null);
 
   const canUndo = useEditor((s) => s.past.length > 0);
   const canRedo = useEditor((s) => s.future.length > 0);
@@ -64,15 +68,44 @@ export function Editor() {
     return () => window.removeEventListener("paste", onPaste);
   }, [importBlob]);
 
-  // Undo / redo shortcuts.
+  // Keyboard shortcuts: undo/redo, tools, delete, nudge, escape.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const t = e.target;
+      const typing =
+        t instanceof HTMLTextAreaElement ||
+        t instanceof HTMLSelectElement ||
+        (t instanceof HTMLInputElement && !["range", "checkbox", "color"].includes(t.type)) ||
+        (t instanceof HTMLElement && t.isContentEditable);
+      if (typing) return;
+      const store = editorStore.getState();
       const mod = e.metaKey || e.ctrlKey;
-      if (!mod || e.key.toLowerCase() !== "z") return;
-      if (e.target instanceof HTMLInputElement && e.target.type === "text") return;
-      e.preventDefault();
-      if (e.shiftKey) editorStore.getState().redo();
-      else editorStore.getState().undo();
+
+      if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) store.redo();
+        else store.undo();
+        return;
+      }
+      if (mod || e.altKey) return;
+
+      const { selectedId } = store.ui;
+      if (e.key === "Escape") {
+        store.setTool("select");
+        store.select(null);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+        e.preventDefault();
+        store.removeLayer(selectedId);
+      } else if (e.key.startsWith("Arrow") && selectedId) {
+        e.preventDefault();
+        const step = e.shiftKey ? 0.02 : 0.004;
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        store.updateLayer(selectedId, (l) => translateLayer(l, dx, dy), `nudge:${selectedId}`);
+      } else {
+        const tool = TOOLS.find((x) => x.key.toLowerCase() === e.key.toLowerCase());
+        if (tool) store.setTool(tool.id);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -89,7 +122,7 @@ export function Editor() {
   async function onExport() {
     const state = editorStore.getState();
     try {
-      const blob = await exportBlob(state.doc, primaryImage(state)?.source, { format, scale });
+      const blob = await exportBlob(state.doc, renderInputFor(state), { format, scale });
       downloadBlob(blob, exportFileName(state.doc, format));
     } catch {
       notify("Export failed.");
@@ -99,7 +132,7 @@ export function Editor() {
   async function onCopy() {
     const state = editorStore.getState();
     try {
-      await copyPng(state.doc, primaryImage(state)?.source, scale);
+      await copyPng(state.doc, renderInputFor(state), scale);
       notify("Copied to clipboard");
     } catch {
       notify("Copy isn't available here. Use Download instead.");
@@ -128,6 +161,23 @@ export function Editor() {
             const f = e.target.files?.[0];
             if (f) void importBlob(f);
             e.target.value = "";
+          }}
+        />
+        <input
+          ref={layerFileInput}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,image/svg+xml"
+          className="hidden"
+          data-testid="layer-file-input"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (!f) return;
+            try {
+              editorStore.getState().addImageLayer(await blobToLoadedImage(f));
+            } catch {
+              notify("That file couldn't be read as an image.");
+            }
           }}
         />
         <div className="mx-2 h-5 w-px bg-white/10" />
@@ -175,22 +225,22 @@ export function Editor() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-80 shrink-0 flex-col border-r border-white/10">
-          <nav className="flex border-b border-white/10 text-sm" aria-label="Editor panels">
+        <aside className="flex w-[22rem] shrink-0 flex-col border-r border-white/10">
+          <nav className="flex border-b border-white/10 text-xs" aria-label="Editor panels">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 aria-pressed={tab === t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex-1 py-3 transition ${tab === t.id ? "border-b-2 border-orange-500 text-white" : "text-neutral-400 hover:text-white"}`}
+                className={`min-w-0 flex-1 truncate px-1 py-3 transition ${tab === t.id ? "border-b-2 border-orange-500 text-white" : "text-neutral-400 hover:text-white"}`}
               >
                 {t.label}
               </button>
             ))}
           </nav>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <Active />
+            <Active actions={{ addImage: () => layerFileInput.current?.click() }} />
           </div>
         </aside>
 
@@ -209,7 +259,7 @@ export function Editor() {
             else notify("Drop an image file (PNG, JPG, WebP).");
           }}
         >
-          <EditorCanvas />
+          <Stage />
           {!hasImage && (
             <p className="pointer-events-none absolute bottom-4 text-xs text-neutral-500">
               Paste with Ctrl/⌘ V, drop a file, or use the buttons above.

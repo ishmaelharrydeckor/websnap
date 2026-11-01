@@ -1,15 +1,19 @@
 import { getWallpaper } from "../assets/wallpapers";
-import type { Background, DesignDocument } from "../document/types";
-import { computeLayout, FRAME_BAR_HEIGHT, type Rect } from "./layout";
+import type { Background, DesignDocument, Layer } from "../document/types";
+import { LAYER_SPACE } from "./geometry";
+import { drawCanvasLayer, drawShotLayer, type RenderableImage } from "./layers";
+import { computeLayout, FRAME_BAR_HEIGHT, PLACEHOLDER_SIZE, type Rect } from "./layout";
 
-export type RenderableImage = CanvasImageSource & { width: number; height: number };
+export type { RenderableImage };
 
 export interface RenderInput {
   /** The user's screenshot. When absent, a placeholder is drawn. */
   image?: RenderableImage;
+  /** Decoded images for image layers, keyed by assetId. */
+  images?: Record<string, RenderableImage>;
+  /** A layer being drawn right now (not yet in the document). */
+  draft?: Layer;
 }
-
-const PLACEHOLDER_SIZE = { width: 1600, height: 1000 };
 
 function fillBackground(ctx: CanvasRenderingContext2D, bg: Background, w: number, h: number) {
   if (bg.kind === "wallpaper") {
@@ -156,7 +160,20 @@ export function renderDocument(ctx: CanvasRenderingContext2D, doc: DesignDocumen
     ctx.textBaseline = "middle";
     ctx.fillText("Drop, paste, or import a screenshot", content.x + content.width / 2, content.y + content.height / 2);
   }
+
+  // Effects and annotations that belong to the screenshot are clipped to it.
+  const layers = input.draft ? [...doc.layers, input.draft] : doc.layers;
+  const src = img ? { image: img, rect: content } : undefined;
+  for (const l of layers) {
+    if (l.visible && LAYER_SPACE[l.type] === "shot") drawShotLayer(ctx, l, content, src);
+  }
   ctx.restore();
+
+  // Shapes, text and images sit on top of everything, anywhere on the canvas.
+  const canvasRect: Rect = { x: 0, y: 0, width: cw, height: ch };
+  for (const l of layers) {
+    if (l.visible && LAYER_SPACE[l.type] === "canvas") drawCanvasLayer(ctx, l, canvasRect, input.images);
+  }
 
   if (doc.watermark.show && doc.watermark.text.trim()) drawWatermark(ctx, doc);
 }

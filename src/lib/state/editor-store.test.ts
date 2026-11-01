@@ -71,3 +71,55 @@ describe("editor store", () => {
     expect(s.getState().images.z).toBeDefined();
   });
 });
+
+describe("layers", () => {
+  const rect = (id: string) =>
+    ({ id, visible: true, type: "rect", x: 0, y: 0, w: 0.2, h: 0.2, color: "#f00", width: 4, fill: null, radius: 0 }) as const;
+
+  it("adds a layer, selects it and returns to the select tool", () => {
+    const s = createEditorStore();
+    s.getState().setTool("rect");
+    s.getState().addLayer(rect("a"));
+    expect(s.getState().doc.layers).toHaveLength(1);
+    expect(s.getState().ui).toEqual({ tool: "select", selectedId: "a" });
+  });
+
+  it("treats a whole drag as one undo step, even with pauses", () => {
+    const s = createEditorStore();
+    s.getState().addLayer(rect("a"));
+    const before = s.getState().past.length;
+    for (const x of [0.1, 0.2, 0.3]) {
+      s.getState().updateLayer("a", (l) => ({ ...l, x }) as typeof l, "drag:a");
+    }
+    expect(s.getState().past.length).toBe(before + 1);
+    s.getState().undo();
+    expect((s.getState().doc.layers[0] as { x: number }).x).toBe(0);
+  });
+
+  it("removes a layer and clears the selection", () => {
+    const s = createEditorStore();
+    s.getState().addLayer(rect("a"));
+    s.getState().removeLayer("a");
+    expect(s.getState().doc.layers).toHaveLength(0);
+    expect(s.getState().ui.selectedId).toBeNull();
+    s.getState().undo();
+    expect(s.getState().doc.layers).toHaveLength(1);
+  });
+
+  it("reorders layers and ignores moves past the ends", () => {
+    const s = createEditorStore();
+    s.getState().addLayer(rect("a"));
+    s.getState().addLayer(rect("b"));
+    s.getState().moveLayer("a", 1);
+    expect(s.getState().doc.layers.map((l) => l.id)).toEqual(["b", "a"]);
+    s.getState().moveLayer("a", 1);
+    expect(s.getState().doc.layers.map((l) => l.id)).toEqual(["b", "a"]);
+  });
+
+  it("adds image layers and keeps the image available", () => {
+    const s = createEditorStore();
+    s.getState().addImageLayer(fakeImage("logo"));
+    expect(s.getState().images.logo).toBeDefined();
+    expect(s.getState().doc.layers[0]).toMatchObject({ type: "image", assetId: "logo" });
+  });
+});

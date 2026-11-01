@@ -1,0 +1,169 @@
+"use client";
+
+import type { Layer } from "@/lib/document/types";
+import { TOOLS } from "@/lib/render/geometry";
+import { Section, Slider, TextField, Toggle } from "./controls";
+import type { PanelProps } from "./panelTypes";
+import { editorStore, useEditor } from "./store";
+
+const STICKERS = ["🚀", "✨", "🔥", "👀", "✅", "❤️", "🎉", "⚡", "📈", "💯", "👉", "🤯", "⭐", "💡", "🙌", "👇"];
+
+function describe(l: Layer): string {
+  switch (l.type) {
+    case "text":
+      return `Text: ${l.text.slice(0, 18)}`;
+    case "step":
+      return `Step ${l.n}`;
+    case "rect":
+      return "Rectangle";
+    case "image":
+      return "Image";
+    default:
+      return l.type.charAt(0).toUpperCase() + l.type.slice(1);
+  }
+}
+
+export function InsertPanel({ actions }: PanelProps) {
+  const tool = useEditor((s) => s.ui.tool);
+  return (
+    <>
+      <Section title="Tools">
+        <p className="text-xs text-neutral-500">Pick a tool, then click or drag on the canvas. Esc returns to select.</p>
+        <div className="grid grid-cols-3 gap-2">
+          {TOOLS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              aria-pressed={tool === t.id}
+              onClick={() => editorStore.getState().setTool(t.id)}
+              className={`rounded-lg border px-2 py-2 text-xs transition ${
+                tool === t.id ? "border-orange-500 bg-orange-500/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
+              }`}
+            >
+              <div>{t.label}</div>
+              <div className="text-[10px] text-neutral-500">{t.key}</div>
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-neutral-500">
+          Blur, pixelate, redact, highlight, spotlight and magnify stick to the screenshot. The rest can go anywhere.
+        </p>
+      </Section>
+      <Section title="Image">
+        <button type="button" onClick={actions.addImage} className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/20">
+          Add image (logo, photo)
+        </button>
+      </Section>
+      <Section title="Stickers">
+        <div className="grid grid-cols-8 gap-1">
+          {STICKERS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              aria-label={`Add ${emoji}`}
+              className="rounded-md p-1 text-xl hover:bg-white/10"
+              onClick={() =>
+                editorStore.getState().addLayer({ id: crypto.randomUUID(), visible: true, type: "text", x: 0.45, y: 0.5, text: emoji, size: 96, color: "#ffffff" })
+              }
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </Section>
+      <Inspector />
+    </>
+  );
+}
+
+export function LayersPanel() {
+  const layers = useEditor((s) => s.doc.layers);
+  const selectedId = useEditor((s) => s.ui.selectedId);
+  const store = editorStore.getState();
+  const ordered = [...layers].reverse();
+
+  return (
+    <>
+      <Section title={`Layers (${layers.length})`}>
+        {layers.length === 0 && <p className="text-xs text-neutral-500">No layers yet. Use the Insert tab to add annotations, text or images.</p>}
+        <ul className="flex flex-col gap-1">
+          {ordered.map((l) => (
+            <li
+              key={l.id}
+              className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${
+                selectedId === l.id ? "border-orange-500 bg-orange-500/10" : "border-white/10"
+              }`}
+            >
+              <button
+                type="button"
+                aria-label={l.visible ? "Hide layer" : "Show layer"}
+                aria-pressed={l.visible}
+                className="w-6 text-neutral-400 hover:text-white"
+                onClick={() => store.updateLayer(l.id, (x) => ({ ...x, visible: !x.visible }) as Layer)}
+              >
+                {l.visible ? "👁" : "–"}
+              </button>
+              <button type="button" className="min-w-0 flex-1 truncate text-left" onClick={() => store.select(l.id)}>
+                {describe(l)}
+              </button>
+              <button type="button" aria-label="Bring forward" className="px-1 text-neutral-400 hover:text-white" onClick={() => store.moveLayer(l.id, 1)}>
+                ↑
+              </button>
+              <button type="button" aria-label="Send backward" className="px-1 text-neutral-400 hover:text-white" onClick={() => store.moveLayer(l.id, -1)}>
+                ↓
+              </button>
+              <button type="button" aria-label="Delete layer" className="px-1 text-neutral-400 hover:text-red-400" onClick={() => store.removeLayer(l.id)}>
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Section>
+      <Inspector />
+    </>
+  );
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex items-center justify-between text-xs text-neutral-300">
+      {label}
+      <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="h-7 w-10 cursor-pointer rounded border border-white/10 bg-transparent" />
+    </label>
+  );
+}
+
+/** Controls for the selected layer. */
+export function Inspector() {
+  const layer = useEditor((s) => s.doc.layers.find((l) => l.id === s.ui.selectedId));
+  if (!layer) return null;
+  const set = (patch: Record<string, unknown>, field: string) =>
+    editorStore.getState().updateLayer(layer.id, (l) => ({ ...l, ...patch }) as Layer, `insp:${layer.id}:${field}`);
+
+  return (
+    <Section title={`Selected: ${describe(layer)}`}>
+      {layer.type === "text" && <TextField label="Text" value={layer.text} onChange={(text) => set({ text }, "text")} />}
+      {layer.type === "text" && <Slider label="Size" value={layer.size} min={20} max={240} onChange={(size) => set({ size }, "size")} />}
+      {"color" in layer && <ColorField label="Color" value={layer.color} onChange={(color) => set({ color }, "color")} />}
+      {"width" in layer && <Slider label="Stroke" value={layer.width} min={2} max={30} onChange={(width) => set({ width }, "width")} />}
+      {layer.type === "rect" && <Slider label="Corner radius" value={layer.radius} min={0} max={80} onChange={(radius) => set({ radius }, "radius")} />}
+      {(layer.type === "rect" || layer.type === "ellipse") && (
+        <>
+          <Toggle label="Fill" checked={layer.fill !== null} onChange={(on) => set({ fill: on ? "#ff3b3040" : null }, "fill-toggle")} />
+          {layer.fill !== null && <ColorField label="Fill color" value={layer.fill.slice(0, 7)} onChange={(c) => set({ fill: `${c}40` }, "fill")} />}
+        </>
+      )}
+      {layer.type === "blur" && <Slider label="Amount" value={layer.amount} min={2} max={60} onChange={(amount) => set({ amount }, "amount")} />}
+      {layer.type === "pixelate" && <Slider label="Block size" value={layer.size} min={6} max={60} onChange={(size) => set({ size }, "size")} />}
+      {layer.type === "magnify" && <Slider label="Zoom" value={layer.zoom} min={1.5} max={4} step={0.1} format={(v) => `${v.toFixed(1)}x`} onChange={(zoom) => set({ zoom }, "zoom")} />}
+      {layer.type === "step" && <Slider label="Number" value={layer.n} min={1} max={20} onChange={(n) => set({ n }, "n")} />}
+      <button
+        type="button"
+        className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-red-300 hover:bg-white/20"
+        onClick={() => editorStore.getState().removeLayer(layer.id)}
+      >
+        Delete layer
+      </button>
+    </Section>
+  );
+}

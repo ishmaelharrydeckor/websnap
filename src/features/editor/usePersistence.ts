@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { collectAssetIds } from "@/lib/document/assets";
 import { blobToLoadedImage } from "@/features/capture/import";
 import { loadCurrentDesign, saveCurrentDesign } from "@/lib/storage/designs";
 import { editorStore } from "./store";
@@ -38,7 +39,7 @@ export function usePersistence() {
         clearTimeout(timer);
         timer = setTimeout(async () => {
           const { doc, images, revision } = editorStore.getState();
-          const blobs = Object.fromEntries(doc.media.map((m) => [m.assetId, images[m.assetId]?.blob]).filter(([, b]) => b));
+          const blobs = Object.fromEntries(collectAssetIds(doc).map((id) => [id, images[id]?.blob]).filter(([, b]) => b));
           try {
             await saveCurrentDesign(doc, blobs as Record<string, Blob>);
             lastSaved = revision;

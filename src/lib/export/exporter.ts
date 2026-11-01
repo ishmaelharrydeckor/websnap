@@ -1,5 +1,5 @@
 import type { DesignDocument } from "../document/types";
-import { renderDocument, type RenderableImage } from "../render/render";
+import { renderDocument, type RenderInput } from "../render/render";
 
 export type ExportFormat = "png" | "jpeg" | "webp";
 
@@ -20,7 +20,7 @@ export function exportFileName(doc: DesignDocument, format: ExportFormat): strin
 /** Renders the document offscreen at the given scale (1 = canvas size) and encodes it. */
 export async function exportBlob(
   doc: DesignDocument,
-  image: RenderableImage | undefined,
+  input: RenderInput,
   opts: { format: ExportFormat; scale: number; quality?: number },
 ): Promise<Blob> {
   const canvas = document.createElement("canvas");
@@ -29,7 +29,7 @@ export async function exportBlob(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not supported in this browser");
   ctx.scale(opts.scale, opts.scale);
-  renderDocument(ctx, doc, { image });
+  renderDocument(ctx, doc, input);
   const { mime } = formatInfo(opts.format);
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -52,7 +52,7 @@ export function downloadBlob(blob: Blob, fileName: string) {
 }
 
 /** Copies a PNG render to the clipboard. Browsers only accept PNG for images. */
-export async function copyPng(doc: DesignDocument, image: RenderableImage | undefined, scale = 1) {
-  const blob = await exportBlob(doc, image, { format: "png", scale });
+export async function copyPng(doc: DesignDocument, input: RenderInput, scale = 1) {
+  const blob = await exportBlob(doc, input, { format: "png", scale });
   await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
 }

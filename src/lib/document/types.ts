@@ -55,6 +55,33 @@ export interface Timeline {
   clips: AnimationClip[];
 }
 
+interface LayerBase {
+  id: string;
+  visible: boolean;
+}
+
+/**
+ * Layers hold geometry in normalised 0-1 coordinates relative to their space:
+ * "shot" layers (effects on the screenshot) use the screenshot area, "canvas" layers use the whole canvas.
+ * Within each space, array order is draw order (last on top); shot layers are drawn before canvas layers.
+ */
+export type Layer =
+  | (LayerBase & { type: "arrow"; x1: number; y1: number; x2: number; y2: number; color: string; width: number })
+  | (LayerBase & { type: "rect"; x: number; y: number; w: number; h: number; color: string; width: number; fill: string | null; radius: number })
+  | (LayerBase & { type: "ellipse"; x: number; y: number; w: number; h: number; color: string; width: number; fill: string | null })
+  | (LayerBase & { type: "step"; x: number; y: number; n: number; color: string })
+  | (LayerBase & { type: "draw"; points: [number, number][]; color: string; width: number })
+  | (LayerBase & { type: "text"; x: number; y: number; text: string; size: number; color: string })
+  | (LayerBase & { type: "image"; x: number; y: number; w: number; h: number; assetId: string })
+  | (LayerBase & { type: "blur"; x: number; y: number; w: number; h: number; amount: number })
+  | (LayerBase & { type: "pixelate"; x: number; y: number; w: number; h: number; size: number })
+  | (LayerBase & { type: "redact"; x: number; y: number; w: number; h: number; color: string })
+  | (LayerBase & { type: "highlight"; x: number; y: number; w: number; h: number; color: string })
+  | (LayerBase & { type: "spotlight"; x: number; y: number; w: number; h: number })
+  | (LayerBase & { type: "magnify"; x: number; y: number; w: number; h: number; zoom: number });
+
+export type LayerType = Layer["type"];
+
 export interface DesignDocument {
   version: 1;
   canvas: { sizeId: string; width: number; height: number };
@@ -64,5 +91,6 @@ export interface DesignDocument {
   headline: HeadlineSettings;
   watermark: WatermarkSettings;
   media: MediaItem[];
+  layers: Layer[];
   timeline: Timeline;
 }

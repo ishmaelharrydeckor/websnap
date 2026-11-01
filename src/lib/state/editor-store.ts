@@ -1,6 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { createDefaultDocument } from "../document/defaults";
-import type { DesignDocument, MediaItem } from "../document/types";
+import type { DesignDocument, Layer, MediaItem } from "../document/types";
+import type { Tool } from "../render/geometry";
 import type { RenderableImage } from "../render/render";
 
 const HISTORY_LIMIT = 100;
@@ -15,17 +16,37 @@ export interface LoadedImage {
   blob: Blob;
 }
 
+/** Editor UI state that is not part of the document and not undoable. */
+export interface UiState {
+  tool: Tool;
+  selectedId: string | null;
+}
+
 export interface EditorState {
   doc: DesignDocument;
+  ui: UiState;
   past: DesignDocument[];
   future: DesignDocument[];
   images: Record<string, LoadedImage>;
   /** Changes whenever the document or its images change; used to trigger autosave. */
   revision: number;
 
-  /** Apply a change to a copy of the document. Edits with the same coalesceKey in quick succession form one undo step. */
+  /**
+   * Apply a change to a copy of the document. Edits with the same coalesceKey in quick succession form one
+   * undo step. Keys starting with "drag:" coalesce regardless of timing (for the length of one pointer drag).
+   */
   update: (recipe: (draft: DesignDocument) => void, coalesceKey?: string) => void;
   setImage: (image: LoadedImage) => void;
+  setTool: (tool: Tool) => void;
+  select: (id: string | null) => void;
+  /** Adds a layer on top, selects it and returns to the select tool. */
+  addLayer: (layer: Layer) => void;
+  updateLayer: (id: string, recipe: (layer: Layer) => Layer, coalesceKey?: string) => void;
+  removeLayer: (id: string) => void;
+  /** Moves a layer one step toward the front (+1) or back (-1) of the layer list. */
+  moveLayer: (id: string, direction: 1 | -1) => void;
+  /** Registers an image and adds it as a layer on the canvas. */
+  addImageLayer: (image: LoadedImage) => void;
   undo: () => void;
   redo: () => void;
   /** Replace everything (used when loading a saved design). Clears history. */
@@ -38,6 +59,7 @@ export function createEditorStore() {
 
   return createStore<EditorState>()((set, get) => ({
     doc: createDefaultDocument(),
+    ui: { tool: "select", selectedId: null },
     past: [],
     future: [],
     images: {},
@@ -48,7 +70,8 @@ export function createEditorStore() {
       const next = structuredClone(doc);
       recipe(next);
       const now = Date.now();
-      const coalesce = coalesceKey !== undefined && coalesceKey === lastKey && now - lastTime < COALESCE_MS;
+      const sticky = coalesceKey?.startsWith("drag:") ?? false;
+      const coalesce = coalesceKey !== undefined && coalesceKey === lastKey && (sticky || now - lastTime < COALESCE_MS);
       lastKey = coalesceKey;
       lastTime = now;
       set({
@@ -74,6 +97,51 @@ export function createEditorStore() {
       });
     },
 
+    setTool: (tool) => set((s) => ({ ui: { ...s.ui, tool, selectedId: tool === "select" ? s.ui.selectedId : null } })),
+
+    select: (id) => set((s) => ({ ui: { ...s.ui, selectedId: id } })),
+
+    addLayer: (layer) => {
+      lastKey = undefined;
+      get().update((d) => {
+        d.layers.push(layer);
+      });
+      set((s) => ({ ui: { ...s.ui, tool: "select", selectedId: layer.id } }));
+    },
+
+    updateLayer: (id, recipe, coalesceKey) => {
+      get().update((d) => {
+        const i = d.layers.findIndex((l) => l.id === id);
+        if (i >= 0) d.layers[i] = recipe(d.layers[i]);
+      }, coalesceKey);
+    },
+
+    removeLayer: (id) => {
+      lastKey = undefined;
+      get().update((d) => {
+        d.layers = d.layers.filter((l) => l.id !== id);
+      });
+      set((s) => (s.ui.selectedId === id ? { ui: { ...s.ui, selectedId: null } } : {}));
+    },
+
+    moveLayer: (id, direction) => {
+      lastKey = undefined;
+      get().update((d) => {
+        const i = d.layers.findIndex((l) => l.id === id);
+        const j = i + direction;
+        if (i < 0 || j < 0 || j >= d.layers.length) return;
+        [d.layers[i], d.layers[j]] = [d.layers[j], d.layers[i]];
+      });
+    },
+
+    addImageLayer: (image) => {
+      set((s) => ({ images: { ...s.images, [image.id]: image } }));
+      const { width: cw, height: ch } = get().doc.canvas;
+      const w = 0.3;
+      const h = Math.min(0.6, w * (image.height / image.width) * (cw / ch));
+      get().addLayer({ id: crypto.randomUUID(), visible: true, type: "image", x: 0.35, y: Math.max(0, 0.5 - h / 2), w, h, assetId: image.id });
+    },
+
     undo: () => {
       const { past, doc, future, revision } = get();
       if (past.length === 0) return;
@@ -92,6 +160,7 @@ export function createEditorStore() {
       lastKey = undefined;
       set((s) => ({
         doc,
+        ui: { ...s.ui, selectedId: null },
         past: [],
         future: [],
         images: Object.fromEntries(images.map((i) => [i.id, i])),
@@ -105,4 +174,12 @@ export function createEditorStore() {
 export function primaryImage(state: Pick<EditorState, "doc" | "images">): LoadedImage | undefined {
   const item = state.doc.media[0];
   return item ? state.images[item.assetId] : undefined;
+}
+
+/** Everything the renderer needs besides the document: the screenshot and the images used by image layers. */
+export function renderInputFor(state: Pick<EditorState, "doc" | "images">): { image?: RenderableImage; images: Record<string, RenderableImage> } {
+  return {
+    image: primaryImage(state)?.source,
+    images: Object.fromEntries(Object.values(state.images).map((i) => [i.id, i.source])),
+  };
 }
