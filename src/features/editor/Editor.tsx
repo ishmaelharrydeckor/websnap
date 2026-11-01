@@ -5,6 +5,7 @@ import { blobToLoadedImage, blobToLoadedMedia, captureScreenFrame, firstImageFro
 import { startScreenRecording, type RecorderHandle } from "@/features/capture/record";
 import { copyPng, downloadBlob, EXPORT_FORMATS, exportBlob, exportFileName, type ExportFormat } from "@/lib/export/exporter";
 import { TOOLS, translateLayer } from "@/lib/render/geometry";
+import { removeSegment, splitAt } from "@/lib/timeline/segments";
 import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
 import { CommandPalette } from "./CommandPalette";
 import { ExportAllDialog } from "./ExportAllDialog";
@@ -118,6 +119,13 @@ export function Editor() {
       } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
         e.preventDefault();
         store.removeLayer(selectedId);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && store.ui.selectedSegment !== null) {
+        e.preventDefault();
+        const index = store.ui.selectedSegment;
+        store.editSegments((segs) => removeSegment(segs, index));
+      } else if (e.key.toLowerCase() === "s" && store.doc.timeline.segments.length > 0) {
+        e.preventDefault();
+        store.editSegments((segs) => splitAt(segs, store.playback.time));
       } else if (e.key.startsWith("Arrow") && selectedId) {
         e.preventDefault();
         const step = e.shiftKey ? 0.02 : 0.004;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { removeSegment, setSpeed, splitAt, trimSegment } from "../timeline/segments";
 import { createEditorStore, primaryImage, type LoadedImage } from "./editor-store";
 
 const fakeImage = (id: string): LoadedImage => ({
@@ -180,5 +181,72 @@ describe("video media and playback", () => {
     s.getState().undo();
     expect(s.getState().doc.media).toHaveLength(0);
     expect(s.getState().doc.timeline.segments).toEqual([]);
+  });
+});
+
+describe("editing cuts", () => {
+  const withVideo = (duration = 10) => {
+    const s = createEditorStore();
+    s.getState().setImage({
+      id: "v",
+      kind: "video",
+      duration,
+      width: 640,
+      height: 360,
+      source: { width: 640, height: 360 } as never,
+      blob: new Blob(["v"]),
+    });
+    return s;
+  };
+
+  it("splits, deletes and keeps the timeline length in step", () => {
+    const s = withVideo(10);
+    s.getState().editSegments((segs) => splitAt(segs, 4));
+    expect(s.getState().doc.timeline.segments).toHaveLength(2);
+    expect(s.getState().doc.timeline.duration).toBe(10);
+    s.getState().editSegments((segs) => removeSegment(segs, 0));
+    expect(s.getState().doc.timeline.duration).toBe(6);
+  });
+
+  it("speeding a segment up shortens the timeline, and the playhead stays inside it", () => {
+    const s = withVideo(10);
+    s.getState().setTime(9);
+    s.getState().editSegments((segs) => setSpeed(segs, 0, 2));
+    expect(s.getState().doc.timeline.duration).toBe(5);
+    expect(s.getState().playback.time).toBe(5);
+  });
+
+  it("each edit is one undo step, and undo restores the length", () => {
+    const s = withVideo(10);
+    const before = s.getState().past.length;
+    s.getState().editSegments((segs) => setSpeed(segs, 0, 4));
+    expect(s.getState().past.length).toBe(before + 1);
+    s.getState().undo();
+    expect(s.getState().doc.timeline.duration).toBe(10);
+    expect(s.getState().doc.timeline.segments[0].speed).toBe(1);
+  });
+
+  it("a no-op edit records nothing", () => {
+    const s = withVideo(10);
+    const before = s.getState().past.length;
+    s.getState().editSegments((segs) => splitAt(segs, 0)); // too close to the start: unchanged
+    s.getState().editSegments((segs) => removeSegment(segs, 0)); // can't delete the only segment
+    expect(s.getState().past.length).toBe(before);
+  });
+
+  it("a trim drag coalesces into one step", () => {
+    const s = withVideo(10);
+    const before = s.getState().past.length;
+    for (const to of [8, 7, 6]) s.getState().editSegments((segs) => trimSegment(segs, 0, "end", to, 10), "drag:trim:1");
+    expect(s.getState().past.length).toBe(before + 1);
+    expect(s.getState().doc.timeline.duration).toBe(6);
+  });
+
+  it("clears the selected segment when it no longer exists", () => {
+    const s = withVideo(10);
+    s.getState().editSegments((segs) => splitAt(segs, 5));
+    s.getState().selectSegment(1);
+    s.getState().editSegments((segs) => removeSegment(segs, 1));
+    expect(s.getState().ui.selectedSegment).toBeNull();
   });
 });

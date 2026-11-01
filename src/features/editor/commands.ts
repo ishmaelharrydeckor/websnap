@@ -5,6 +5,7 @@ import { EXPORT_FORMATS, type ExportFormat } from "@/lib/export/exporter";
 import type { FrameStyle } from "@/lib/document/types";
 import { DEVICE_LIST } from "@/lib/assets/devices";
 import { TOOLS } from "@/lib/render/geometry";
+import { removeSegment, splitAt } from "@/lib/timeline/segments";
 import { TILT_PRESETS } from "@/lib/render/perspective";
 import type { LayoutKind, ShadowMode } from "@/lib/document/types";
 import { editorStore } from "./store";
@@ -65,6 +66,24 @@ export function buildCommands(ctx: CommandContext): Command[] {
       label: "Play / pause",
       hint: "Space",
       run: () => store().setPlaying(!store().playback.playing),
+    },
+    {
+      id: "split",
+      group: "Timeline",
+      label: "Split clip at playhead",
+      keywords: "cut",
+      hint: "S",
+      run: () => store().editSegments((segs) => splitAt(segs, store().playback.time)),
+    },
+    {
+      id: "delete-segment",
+      group: "Timeline",
+      label: "Delete selected segment",
+      keywords: "remove cut",
+      run: () => {
+        const i = store().ui.selectedSegment;
+        if (i !== null) store().editSegments((segs) => removeSegment(segs, i));
+      },
     },
     { id: "toggle-timeline", group: "Timeline", label: "Show or hide timeline", keywords: "animate video", run: () => store().setTimelineOpen(!store().ui.timelineOpen) },
     { id: "add-image", group: "File", label: "Add image layer", keywords: "logo photo insert", run: ctx.addImage },

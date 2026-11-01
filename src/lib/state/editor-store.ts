@@ -4,7 +4,8 @@ import { EMPTY_BRAND, type Brand } from "../brand/brand";
 import type { DesignDocument, Layer, MediaItem } from "../document/types";
 import type { Tool } from "../render/geometry";
 import { SLOT_COUNT } from "../render/layout";
-import { wholeVideo } from "../timeline/segments";
+import { timelineDuration, wholeVideo } from "../timeline/segments";
+import type { Segment } from "../document/types";
 import type { RenderableImage } from "../render/render";
 
 const HISTORY_LIMIT = 100;
@@ -30,6 +31,8 @@ export interface UiState {
   tool: Tool;
   selectedId: string | null;
   timelineOpen: boolean;
+  /** The cut selected in the timeline, by index. */
+  selectedSegment: number | null;
 }
 
 /** Where the preview is on the timeline. Not part of the document or its undo history. */
@@ -65,6 +68,12 @@ export interface EditorState {
   setTime: (time: number) => void;
   setPlaying: (playing: boolean) => void;
   setTimelineOpen: (open: boolean) => void;
+  selectSegment: (index: number | null) => void;
+  /**
+   * Edits the first screen's cuts as one undo step. The timeline length follows the result, and the playhead and
+   * selection are kept inside it. A recipe that returns its input unchanged records nothing.
+   */
+  editSegments: (recipe: (segments: Segment[]) => Segment[], coalesceKey?: string) => void;
   select: (id: string | null) => void;
   /** Adds a layer on top, selects it and returns to the select tool. */
   addLayer: (layer: Layer) => void;
@@ -88,7 +97,7 @@ export function createEditorStore() {
 
   return createStore<EditorState>()((set, get) => ({
     doc: createDefaultDocument(),
-    ui: { tool: "select", selectedId: null, timelineOpen: false },
+    ui: { tool: "select", selectedId: null, timelineOpen: false, selectedSegment: null },
     playback: { time: 0, playing: false },
     brand: EMPTY_BRAND,
     past: [],
@@ -142,6 +151,22 @@ export function createEditorStore() {
       set((s) => ({ playback: { ...s.playback, time: Math.max(0, Math.min(time, s.doc.timeline.duration)) } })),
 
     setPlaying: (playing) => set((s) => ({ playback: { ...s.playback, playing } })),
+
+    selectSegment: (index) => set((s) => ({ ui: { ...s.ui, selectedSegment: index } })),
+
+    editSegments: (recipe, coalesceKey) => {
+      const current = get().doc.timeline.segments;
+      const next = recipe(current);
+      if (next === current) return;
+      get().update((d) => {
+        d.timeline.segments = structuredClone(next);
+        if (next.length > 0) d.timeline.duration = timelineDuration(next);
+      }, coalesceKey);
+      set((s) => ({
+        playback: { ...s.playback, time: Math.min(s.playback.time, s.doc.timeline.duration) },
+        ui: { ...s.ui, selectedSegment: s.ui.selectedSegment !== null && s.ui.selectedSegment < s.doc.timeline.segments.length ? s.ui.selectedSegment : null },
+      }));
+    },
 
     setTimelineOpen: (open) => set((s) => ({ ui: { ...s.ui, timelineOpen: open } })),
 
