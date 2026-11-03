@@ -99,9 +99,13 @@ describe("buildSet", () => {
     base.media = [{ id: "m", kind: "image", assetId: "m", width: 1, height: 1 }];
     const slides = buildSet(base, { count: 3, size, headlines: ["a", "b", "c"], keepFirst: true });
     expect(slides[0].media).toHaveLength(1);
-    expect(slides[0].headline.text).toBe("mine");
+    expect(slides[0].headline.text).toBe("a"); // a typed headline wins over the kept design's
     expect(slides[1].media).toHaveLength(0);
     expect(slides[1].headline.text).toBe("b");
+  });
+  it("keeps the kept slide's own headline when none is typed", () => {
+    const slides = buildSet(doc("mine"), { count: 2, size, headlines: [], keepFirst: true });
+    expect(slides[0].headline.text).toBe("mine");
   });
   it("applies a template's look to every slide", () => {
     const tpl = TEMPLATES.find((t) => t.id === "launch")!;

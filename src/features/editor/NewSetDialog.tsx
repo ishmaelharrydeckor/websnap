@@ -16,7 +16,7 @@ export function NewSetDialog({ onClose, onDone }: { onClose: () => void; onDone:
   const sizes = SET_SIZES.map((id) => SIZE_PRESETS.find((p) => p.id === id)).filter((p) => p !== undefined);
   const [sizeId, setSizeId] = useState("appstore-69");
   const [count, setCount] = useState(5);
-  const [templateId, setTemplateId] = useState("");
+  const [templateId, setTemplateId] = useState("iphone");
   const [keepFirst, setKeepFirst] = useState(true);
   const [text, setText] = useState("");
   useEffect(() => {
@@ -91,7 +91,7 @@ export function NewSetDialog({ onClose, onDone }: { onClose: () => void; onDone:
         </label>
         <label className="mt-3 flex items-center gap-2 text-xs text-neutral-300">
           <input type="checkbox" checked={keepFirst} onChange={(e) => setKeepFirst(e.target.checked)} className="size-4 accent-orange-500" />
-          Keep my current design as slide 1
+          Keep my current screenshot on slide 1
         </label>
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-sm text-neutral-300 hover:bg-white/10">

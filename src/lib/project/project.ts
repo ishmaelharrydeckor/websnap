@@ -85,6 +85,11 @@ export function buildSet(base: DesignDocument, opts: SetOptions): DesignDocument
   for (let i = 0; i < count; i++) {
     const keep = i === 0 && opts.keepFirst;
     const slide = keep ? structuredClone(base) : blankLike(base, opts.headlines[i] ?? `Headline for slide ${i + 1}`);
+    // A headline typed for slide 1 wins over the one the kept design had.
+    if (keep && opts.headlines[0]) {
+      slide.headline.text = opts.headlines[0];
+      slide.headline.show = true;
+    }
     slide.canvas = { sizeId: opts.size.id, width: opts.size.width, height: opts.size.height };
     if (opts.template) applyTemplate(slide, opts.template);
     // A set with captions needs the headline on, unless the chosen template deliberately has none.
