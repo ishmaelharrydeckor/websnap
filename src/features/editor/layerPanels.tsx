@@ -99,7 +99,7 @@ export function LayersPanel() {
                 type="button"
                 aria-label={l.visible ? "Hide layer" : "Show layer"}
                 aria-pressed={l.visible}
-                className="w-6 text-neutral-400 hover:text-white"
+                className="min-h-8 w-8 text-neutral-400 hover:text-white"
                 onClick={() => store.updateLayer(l.id, (x) => ({ ...x, visible: !x.visible }) as Layer)}
               >
                 {l.visible ? "👁" : "–"}
@@ -107,13 +107,13 @@ export function LayersPanel() {
               <button type="button" className="min-w-0 flex-1 truncate text-left" onClick={() => store.select(l.id)}>
                 {describe(l)}
               </button>
-              <button type="button" aria-label="Bring forward" className="px-1 text-neutral-400 hover:text-white" onClick={() => store.moveLayer(l.id, 1)}>
+              <button type="button" aria-label="Bring forward" className="min-h-8 min-w-8 px-1 text-neutral-400 hover:text-white" onClick={() => store.moveLayer(l.id, 1)}>
                 ↑
               </button>
-              <button type="button" aria-label="Send backward" className="px-1 text-neutral-400 hover:text-white" onClick={() => store.moveLayer(l.id, -1)}>
+              <button type="button" aria-label="Send backward" className="min-h-8 min-w-8 px-1 text-neutral-400 hover:text-white" onClick={() => store.moveLayer(l.id, -1)}>
                 ↓
               </button>
-              <button type="button" aria-label="Delete layer" className="px-1 text-neutral-400 hover:text-red-400" onClick={() => store.removeLayer(l.id)}>
+              <button type="button" aria-label="Delete layer" className="min-h-8 min-w-8 px-1 text-neutral-400 hover:text-red-400" onClick={() => store.removeLayer(l.id)}>
                 ✕
               </button>
             </li>

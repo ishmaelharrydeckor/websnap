@@ -36,7 +36,7 @@ const TABS: { id: string; label: string; panel: ComponentType<PanelProps> }[] = 
 ];
 
 const btn =
-  "rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40";
+  "whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40";
 
 export function Editor() {
   usePersistence();
@@ -242,8 +242,8 @@ export function Editor() {
   const Active = TABS.find((t) => t.id === tab)!.panel;
 
   return (
-    <div className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-white/10 px-4">
+    <div className="flex h-dvh flex-col bg-neutral-950 text-neutral-100">
+      <header className="flex shrink-0 flex-nowrap items-center gap-2 overflow-x-auto border-b border-white/10 px-3 py-2 md:min-h-14 md:flex-wrap md:overflow-visible md:px-4">
         <h1 className="mr-3 text-sm font-semibold">{SITE_NAME}</h1>
         <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => fileInput.current?.click()}>
           Upload image
@@ -327,7 +327,7 @@ export function Editor() {
         >
           Search <kbd className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-xs">Ctrl/⌘ K</kbd>
         </button>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 md:flex-wrap">
           {message && (
             <span role="status" className="text-xs text-neutral-300">
               {message}
@@ -372,8 +372,8 @@ export function Editor() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[22rem] shrink-0 flex-col border-r border-white/10">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <aside className="order-2 flex max-h-[45%] w-full shrink-0 flex-col border-t border-white/10 md:order-none md:max-h-none md:w-[22rem] md:border-t-0 md:border-r">
           <nav className="grid grid-cols-4 border-b border-white/10 text-xs" aria-label="Editor panels">
             {TABS.map((t) => (
               <button
@@ -401,7 +401,7 @@ export function Editor() {
         </aside>
 
         <main
-          className={`relative flex min-w-0 flex-1 items-center justify-center p-8 ${dragging ? "bg-orange-500/10" : ""}`}
+          className={`relative flex min-h-[12rem] min-w-0 flex-1 items-center justify-center p-3 md:p-8 ${dragging ? "bg-orange-500/10" : ""}`}
           onDragOver={(e) => {
             e.preventDefault();
             setDragging(true);

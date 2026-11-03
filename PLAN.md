@@ -178,6 +178,10 @@ everything it needs (upload, paste, drop, screen capture, recording, export) alr
   timeline, layers and the share pages (contrast, names, headings fixed). Dialogs trap and restore focus
   (`useModalFocus`); the preview canvas has a text label. Not done: a screen-reader walkthrough, and canvas
   editing (drawing and moving layers) still needs a mouse or touch.
+- **Small screens**: below 768 px the panels sit under the preview and the toolbar scrolls sideways; at tablet
+  width the toolbar wraps. Checked at 390x844 (phone, with touch: tapping templates, drawing an arrow with a
+  finger) and 820x1180, with no page overflow and no axe violations at phone width. Still desktop-first: dense
+  panels and the timeline are cramped on a phone, and only Chromium emulation was used (no real device).
 - **Landing page** at `/` with real screenshots made by the editor itself; the product name lives in
   `src/lib/site.ts`, so renaming is a one-file change plus docs.
 - **Repo basics**: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, issue and PR templates. Contribution terms
