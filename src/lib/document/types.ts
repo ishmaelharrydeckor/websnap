@@ -1,11 +1,20 @@
 export type FontId = "sans" | "serif" | "mono" | "rounded";
 
 export type WindowFrameStyle = "macos" | "browser" | "safari";
-export type DeviceFrameStyle = "iphone" | "android" | "ipad" | "macbook" | "monitor";
+export type DeviceFrameStyle = "iphone" | "android" | "ipad" | "tablet" | "watch" | "macbook" | "imac" | "monitor";
 export type FrameStyle = "none" | WindowFrameStyle | DeviceFrameStyle;
 
 /** How many screens share the canvas. Screens are filled from the media list in order. */
-export type LayoutKind = "single" | "duo" | "trio";
+export type LayoutKind =
+  | "single"
+  | "duo"
+  | "trio"
+  /** Four screens in a 2 x 2 grid. */
+  | "quad"
+  /** One device rising from the bottom edge, cropped by the canvas. */
+  | "rise"
+  /** One large device bleeding off the edge opposite the headline column (or the right edge). */
+  | "bleed";
 
 /** 3D rotation of each screen, in degrees: pitch (x), yaw (y) and roll (z). All zero means flat. */
 export interface Tilt {
@@ -53,7 +62,8 @@ export interface ShotSettings {
 export interface HeadlineSettings {
   show: boolean;
   text: string;
-  position: "top" | "bottom";
+  /** Left and right put the headline in a column beside the screens. */
+  position: "top" | "bottom" | "left" | "right";
   align: "left" | "center";
   /** Font size in canvas pixels. */
   size: number;
@@ -195,7 +205,7 @@ export interface DesignDocument {
   /** Font family used for the headline, watermark and text layers. */
   font: FontId;
   background: Background;
-  frame: { style: FrameStyle; dark: boolean; url: string };
+  frame: { style: FrameStyle; dark: boolean; url: string; /** Phones and tablets lie on their side. */ landscape: boolean };
   layout: { kind: LayoutKind };
   tilt: Tilt;
   shot: ShotSettings;

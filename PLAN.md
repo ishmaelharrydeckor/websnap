@@ -203,10 +203,24 @@ Added after re-reading what Shots offers (nothing copied):
 Not done from that list: portrait/landscape toggle for devices, layouts for more than three screens, stock photo
 search (needs an API key and a service), a "liquid glass" refraction look, and live background variants for video.
 
+### More templates and mockups
+- **Layouts**: 4 screens (2 x 2), a device **rising** from the bottom edge, a large device **bleeding** off the canvas
+  edge, and a headline **column** on the left or right (text wraps beside the screens). On tall canvases a side
+  headline moves above or below the screens so they aren't squeezed. A layout picker shows a small diagram of each.
+- **Devices**: Watch, Tablet and iMac (drawn in code, like the rest), plus **Rotate device** for phones and
+  tablets (on their side, with the camera and buttons turned too).
+- **Templates**: 28 (15 new: Split, Card, Rise, Bleed, Grid, Watch, iMac, Tablet, Sideways, Pair, Glass, Orbit,
+  Neon, Inset, Outline). A template is a whole look: it also sets the edge style, 3D shapes and device rotation;
+  grain/VHS/glitch effects stay. Every template is checked on four canvas sizes.
+- Limits: no per-screen device mix (one frame style for all screens), no fanned/overlapping screen layouts, no
+  custom drag-to-position of a device on the canvas, and the headline column is plain wrapped text.
+- `npm run e2e` runs a browser smoke test (`e2e/smoke.mjs`) against a running server.
+
 ## Templates
 Templates are JSON documents in our own model that keep the user's content when swapped.
 Shipped: Hero, Spotlight, Clean, Bold, Minimal, Soft, Ocean, Studio (Phase 2); iPhone, MacBook,
-Compare, Showcase, Isometric (Phase 3). Still to design: Split, Card.
+Compare, Showcase, Isometric (Phase 3); Split, Card, Rise, Bleed, Grid, Watch, iMac, Tablet, Sideways, Pair, Glass,
+Orbit, Neon, Inset, Outline (later).
 Each social size gets its own layout rather than a stretched one.
 
 Inspiration sources (ideas only, never copied assets):

@@ -5,7 +5,7 @@ import { GRADIENT_PRESETS, SOLID_PRESETS } from "@/lib/assets/backgrounds";
 import { FONTS } from "@/lib/assets/fonts";
 import { SIZE_PRESETS } from "@/lib/assets/sizes";
 import { getWallpaper, WALLPAPERS } from "@/lib/assets/wallpapers";
-import { DEVICE_LIST, isDeviceFrame } from "@/lib/assets/devices";
+import { DEVICE_LIST, isDeviceFrame, ROTATABLE } from "@/lib/assets/devices";
 import { buildMesh, extractPalette, meshPalette } from "@/lib/assets/magic";
 import type { FrameStyle, LayoutKind, ShadowMode, ShotStyle } from "@/lib/document/types";
 import { samplePixels } from "@/lib/render/color";
@@ -332,7 +332,30 @@ const LAYOUTS: { id: LayoutKind; label: string }[] = [
   { id: "single", label: "1 screen" },
   { id: "duo", label: "2 screens" },
   { id: "trio", label: "3 screens" },
+  { id: "quad", label: "4 screens" },
+  { id: "rise", label: "Rising" },
+  { id: "bleed", label: "Bleeding" },
 ];
+
+/** A tiny diagram of where the screens go (the canvas is the outline; the dark boxes are screens). */
+function LayoutGlyph({ kind }: { kind: LayoutKind }) {
+  const boxes: Record<LayoutKind, [number, number, number, number][]> = {
+    single: [[10, 5, 24, 18]],
+    duo: [[4, 6, 16, 16], [24, 6, 16, 16]],
+    trio: [[3, 7, 11, 14], [16.5, 7, 11, 14], [30, 7, 11, 14]],
+    quad: [[6, 3, 14, 10], [24, 3, 14, 10], [6, 15, 14, 10], [24, 15, 14, 10]],
+    rise: [[7, 10, 30, 24]],
+    bleed: [[16, 4, 40, 20]],
+  };
+  return (
+    <svg viewBox="0 0 44 28" width="44" height="28" aria-hidden="true" className="overflow-hidden rounded-sm">
+      <rect x="0.5" y="0.5" width="43" height="27" rx="2" fill="none" stroke="currentColor" strokeOpacity="0.35" />
+      {boxes[kind].map(([x, y, w, h], i) => (
+        <rect key={i} x={x} y={y} width={w} height={h} rx="1.5" fill="currentColor" fillOpacity="0.75" />
+      ))}
+    </svg>
+  );
+}
 
 const SHADOWS: { id: ShadowMode; label: string }[] = [
   { id: "none", label: "None" },
@@ -446,7 +469,20 @@ export function StylePanel({ actions }: PanelProps) {
   return (
     <>
       <Section title="Layout">
-        <Segmented label="Layout" value={layout} options={LAYOUTS} onChange={(kind) => update((d) => void (d.layout.kind = kind))} />
+        <div role="group" aria-label="Layout" className="grid grid-cols-3 gap-2">
+          {LAYOUTS.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              aria-pressed={layout === l.id}
+              onClick={() => update((d) => void (d.layout.kind = l.id))}
+              className={`flex flex-col items-center gap-1.5 rounded-lg border px-1 py-2 text-xs transition ${layout === l.id ? "border-orange-500 bg-orange-700/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"}`}
+            >
+              <LayoutGlyph kind={l.id} />
+              {l.label}
+            </button>
+          ))}
+        </div>
       </Section>
       <ScreensSection actions={actions} />
       <ShotStyleSection />
@@ -467,6 +503,9 @@ export function StylePanel({ actions }: PanelProps) {
             </button>
           ))}
         </div>
+        {isDeviceFrame(frame.style) && ROTATABLE.includes(frame.style) && (
+          <Toggle label="Rotate device" checked={frame.landscape} onChange={(v) => update((d) => void (d.frame.landscape = v))} />
+        )}
         {frame.style !== "none" && (
           <Toggle label={device ? "Black finish" : "Dark frame"} checked={frame.dark} onChange={(v) => update((d) => void (d.frame.dark = v))} />
         )}
@@ -517,6 +556,8 @@ export function TextPanel() {
           options={[
             { id: "top", label: "Top" },
             { id: "bottom", label: "Bottom" },
+            { id: "left", label: "Left" },
+            { id: "right", label: "Right" },
           ]}
           onChange={(v) => update((d) => void (d.headline.position = v))}
         />

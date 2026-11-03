@@ -14,7 +14,7 @@ export function createDefaultDocument(): DesignDocument {
         { offset: 1, color: "#7b2ff7" },
       ],
     },
-    frame: { style: "browser", dark: false, url: "yourproduct.com" },
+    frame: { style: "browser", dark: false, url: "yourproduct.com", landscape: false },
     layout: { kind: "single" },
     tilt: { x: 0, y: 0, z: 0 },
     shot: { style: "default", styleOpacity: 0.4, padding: 0.09, radius: 14, shadow: 55, shadowMode: "spread" },

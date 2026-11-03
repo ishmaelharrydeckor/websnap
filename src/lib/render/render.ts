@@ -1,4 +1,4 @@
-import { DEVICES, isDeviceFrame } from "../assets/devices";
+import { getDevice, isDeviceFrame } from "../assets/devices";
 import { fontStack } from "../assets/fonts";
 import { getWallpaper } from "../assets/wallpapers";
 import type { Background, DesignDocument, Layer } from "../document/types";
@@ -115,12 +115,50 @@ function drawTitleBar(ctx: CanvasRenderingContext2D, doc: DesignDocument, rect: 
   ctx.fillText(doc.frame.url, pill.x + pill.width / 2, pill.y + pill.height / 2 + 1);
 }
 
-function drawHeadline(ctx: CanvasRenderingContext2D, doc: DesignDocument, band: Rect) {
+/** Greedy word wrap: the lines that `text` needs at the current font within `maxWidth`. */
+export function wrapLines(measure: (s: string) => number, text: string, maxWidth: number): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && measure(next) > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function drawHeadline(ctx: CanvasRenderingContext2D, doc: DesignDocument, band: Rect, column: boolean) {
   const { text, size, color, align } = doc.headline;
   ctx.save();
   ctx.fillStyle = color;
   ctx.textBaseline = "middle";
   ctx.textAlign = align === "center" ? "center" : "left";
+  const x = align === "center" ? band.x + band.width / 2 : band.x;
+
+  if (column) {
+    // A column beside the screens: wrap onto several lines and centre the block vertically, shrinking to fit.
+    let fontSize = size;
+    let lines: string[] = [];
+    for (let i = 0; i < 40; i++) {
+      ctx.font = `700 ${fontSize}px ${fontStack(doc.font)}`;
+      lines = wrapLines((s) => ctx.measureText(s).width, text, band.width);
+      const widest = Math.max(...lines.map((l) => ctx.measureText(l).width), 0);
+      if (lines.length * fontSize * 1.15 <= band.height && widest <= band.width * 1.001) break;
+      fontSize = Math.max(12, Math.floor(fontSize * 0.93));
+      if (fontSize <= 12) break;
+    }
+    const lineH = fontSize * 1.15;
+    const top = band.y + (band.height - lines.length * lineH) / 2 + lineH / 2;
+    lines.forEach((l, i) => ctx.fillText(l, x, top + i * lineH));
+    ctx.restore();
+    return;
+  }
+
   let fontSize = size;
   ctx.font = `700 ${fontSize}px ${fontStack(doc.font)}`;
   const measured = ctx.measureText(text).width;
@@ -128,7 +166,6 @@ function drawHeadline(ctx: CanvasRenderingContext2D, doc: DesignDocument, band: 
     fontSize = Math.max(12, Math.floor((size * band.width) / measured));
     ctx.font = `700 ${fontSize}px ${fontStack(doc.font)}`;
   }
-  const x = align === "center" ? band.x + band.width / 2 : band.x;
   ctx.fillText(text, x, band.y + band.height / 2);
   ctx.restore();
 }
@@ -198,7 +235,7 @@ function outlinePath(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: S
   const style = doc.frame.style;
   if (isDeviceFrame(style)) {
     ctx.beginPath();
-    DEVICES[style].outline(ctx, slot.frame);
+    getDevice(style, doc.frame.landscape).outline(ctx, slot.frame);
   } else {
     roundedRectPath(ctx, slot.frame, doc.shot.radius);
   }
@@ -322,7 +359,7 @@ function drawCard(
 ) {
   const { frame, content } = slot;
   const style = doc.frame.style;
-  const device = isDeviceFrame(style) ? DEVICES[style] : undefined;
+  const device = isDeviceFrame(style) ? getDevice(style, doc.frame.landscape) : undefined;
   const bar = FRAME_BAR_HEIGHT[style];
 
   // Where the whole image lands: stretched into windows (which match its aspect), cover-fitted into device screens.
@@ -429,7 +466,7 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
   }
 
   const screens = input.screens ?? [];
-  const { slots, headline } = computeLayout(
+  const { slots, headline, headlineColumn } = computeLayout(
     doc,
     screens.map((s) => (s ? { width: s.width, height: s.height } : undefined)),
   );
@@ -469,8 +506,6 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
   const scene = doc.scene.kind === "none" ? undefined : sceneFaces(doc.scene, doc.background, cw, ch, t, { back: [bg.x, bg.y], front: [fg.x * 1.3, fg.y * 1.3] });
   if (scene) drawScene(ctx, scene.back);
 
-  if (headline) drawHeadline(ctx, doc, headline);
-
   const alphaOf = (l: Layer) => layerAlpha(l, t);
   const layers = (input.draft ? [...doc.layers, input.draft] : doc.layers).filter((l) => l.visible && alphaOf(l) > 0);
 
@@ -484,6 +519,9 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
   ctx.restore();
 
   if (scene) drawScene(ctx, scene.front);
+
+  // The headline goes over the 3D shapes (so a shape never hides it), but under annotations and other layers.
+  if (headline) drawHeadline(ctx, doc, headline, headlineColumn === true);
 
   // Shapes, text and images sit on top of everything, in layer order. Ones attached to a screen are placed
   // relative to it (and tilt and drift with it); the rest are placed anywhere on the canvas.

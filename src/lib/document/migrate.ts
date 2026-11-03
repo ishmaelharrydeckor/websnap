@@ -1,5 +1,5 @@
 import { createDefaultDocument } from "./defaults";
-import type { DesignDocument, SceneKind, ScenePalette, ShotStyle } from "./types";
+import type { DesignDocument, LayoutKind, SceneKind, ScenePalette, ShotStyle } from "./types";
 
 /**
  * Fills in anything a saved document is missing (fields added in later releases) so older
@@ -12,11 +12,11 @@ export function normalizeDocument(saved: Partial<DesignDocument>): DesignDocumen
     ...saved,
     version: 1,
     canvas: sanitizeCanvas({ ...d.canvas, ...saved.canvas }, d.canvas),
-    frame: { ...d.frame, ...saved.frame },
-    layout: { ...d.layout, ...saved.layout },
+    frame: { ...d.frame, ...saved.frame, landscape: saved.frame?.landscape === true },
+    layout: { kind: LAYOUT_KINDS.includes(saved.layout?.kind as LayoutKind) ? (saved.layout!.kind as LayoutKind) : d.layout.kind },
     tilt: { ...d.tilt, ...saved.tilt },
     shot: sanitizeShot({ ...d.shot, ...saved.shot }, d.shot),
-    headline: { ...d.headline, ...saved.headline },
+    headline: sanitizeHeadline({ ...d.headline, ...saved.headline }, d.headline),
     watermark: { ...d.watermark, ...saved.watermark },
     effects: sanitizeEffects({ ...d.effects, ...saved.effects }),
     scene: sanitizeScene({ ...d.scene, ...saved.scene }, d.scene),
@@ -60,4 +60,11 @@ const SHOT_STYLES: ShotStyle[] = ["default", "glassLight", "glassDark", "inset",
 function sanitizeShot(s: DesignDocument["shot"], fallback: DesignDocument["shot"]): DesignDocument["shot"] {
   const opacity = typeof s.styleOpacity === "number" && Number.isFinite(s.styleOpacity) ? Math.min(1, Math.max(0.1, s.styleOpacity)) : fallback.styleOpacity;
   return { ...s, style: SHOT_STYLES.includes(s.style) ? s.style : fallback.style, styleOpacity: opacity };
+}
+
+const LAYOUT_KINDS: LayoutKind[] = ["single", "duo", "trio", "quad", "rise", "bleed"];
+const HEADLINE_POSITIONS: DesignDocument["headline"]["position"][] = ["top", "bottom", "left", "right"];
+
+function sanitizeHeadline(h: DesignDocument["headline"], fallback: DesignDocument["headline"]): DesignDocument["headline"] {
+  return { ...h, position: HEADLINE_POSITIONS.includes(h.position) ? h.position : fallback.position };
 }
