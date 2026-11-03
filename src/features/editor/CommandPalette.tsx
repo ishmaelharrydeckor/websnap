@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { filterCommands, type Command } from "./commands";
+import { useModalFocus } from "./useModalFocus";
 
 export function CommandPalette({ commands, onClose }: { commands: Command[]; onClose: () => void }) {
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,10 +47,12 @@ export function CommandPalette({ commands, onClose }: { commands: Command[]; onC
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-[15vh]" onMouseDown={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="w-full max-w-lg overflow-hidden rounded-xl border border-white/10 bg-neutral-900 shadow-2xl"
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-white/10 bg-neutral-900 shadow-2xl outline-none"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
@@ -65,10 +69,10 @@ export function CommandPalette({ commands, onClose }: { commands: Command[]; onC
             setActive(0);
           }}
           placeholder="Type a command: size, template, tool, export..."
-          className="w-full border-b border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-neutral-500"
+          className="w-full border-b border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-neutral-400"
         />
         <ul id="palette-list" role="listbox" ref={listRef} className="max-h-80 overflow-y-auto py-1">
-          {results.length === 0 && <li className="px-4 py-3 text-sm text-neutral-500">No matching commands</li>}
+          {results.length === 0 && <li className="px-4 py-3 text-sm text-neutral-400">No matching commands</li>}
           {results.map((cmd, i) => (
             <li
               key={cmd.id}
@@ -81,7 +85,7 @@ export function CommandPalette({ commands, onClose }: { commands: Command[]; onC
               className={`flex cursor-pointer items-center justify-between px-4 py-2 text-sm ${i === current ? "bg-white/10 text-white" : "text-neutral-300"}`}
             >
               <span className="truncate">{cmd.label}</span>
-              <span className="ml-3 flex shrink-0 items-center gap-2 text-xs text-neutral-500">
+              <span className="ml-3 flex shrink-0 items-center gap-2 text-xs text-neutral-400">
                 {cmd.hint && <kbd className="rounded bg-white/10 px-1.5 py-0.5">{cmd.hint}</kbd>}
                 {cmd.group}
               </span>

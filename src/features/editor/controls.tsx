@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-b border-white/10 px-4 py-4">
-      <h3 className="mb-3 text-[11px] font-semibold tracking-wider text-neutral-400 uppercase">{title}</h3>
+      <h2 className="mb-3 text-[11px] font-semibold tracking-wider text-neutral-400 uppercase">{title}</h2>
       <div className="flex flex-col gap-3">{children}</div>
     </section>
   );
@@ -32,7 +32,7 @@ export function Slider({
     <label className="block text-xs text-neutral-300">
       <span className="mb-1 flex justify-between">
         <span>{label}</span>
-        <span className="text-neutral-500 tabular-nums">{format ? format(value) : value}</span>
+        <span className="text-neutral-400 tabular-nums">{format ? format(value) : value}</span>
       </span>
       <input
         type="range"

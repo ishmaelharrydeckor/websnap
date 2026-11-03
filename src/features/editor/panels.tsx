@@ -34,11 +34,11 @@ export function CanvasPanel() {
               })
             }
             className={`rounded-lg border px-2 py-2 text-left text-xs transition ${
-              sizeId === p.id ? "border-orange-500 bg-orange-500/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
+              sizeId === p.id ? "border-orange-500 bg-orange-700/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
             }`}
           >
             <div className="font-medium">{p.label}</div>
-            <div className="text-neutral-500">
+            <div className="text-neutral-400">
               {p.width}×{p.height}
             </div>
           </button>
@@ -80,7 +80,7 @@ function MagicSection() {
 
   return (
     <Section title="Magic background">
-      <p className="text-xs text-neutral-500">Builds a glowing background from the colors in your screenshot.</p>
+      <p className="text-xs text-neutral-400">Builds a glowing background from the colors in your screenshot.</p>
       <div className="flex gap-2">
         <button
           type="button"
@@ -99,7 +99,7 @@ function MagicSection() {
           Shuffle
         </button>
       </div>
-      {!hasImage && <p className="text-xs text-neutral-500">Add a screenshot first.</p>}
+      {!hasImage && <p className="text-xs text-neutral-400">Add a screenshot first.</p>}
     </Section>
   );
 }
@@ -144,7 +144,7 @@ function SceneSection() {
           >
             Shuffle arrangement
           </button>
-          <p className="text-xs text-neutral-500">Shapes spin and drift while the timeline plays.</p>
+          <p className="text-xs text-neutral-400">Shapes spin and drift while the timeline plays.</p>
         </>
       )}
     </Section>
@@ -270,7 +270,7 @@ function TiltSection() {
             aria-pressed={active === p.id}
             onClick={() => update((d) => void (d.tilt = { ...p.tilt }))}
             className={`rounded-md border px-1 py-1.5 text-xs transition ${
-              active === p.id ? "border-orange-500 bg-orange-500/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
+              active === p.id ? "border-orange-500 bg-orange-700/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
             }`}
           >
             {p.label}
@@ -296,7 +296,7 @@ function ScreensSection({ actions }: PanelProps) {
           return (
             <li key={i} className="flex items-center justify-between rounded-md border border-white/10 px-2 py-1.5 text-xs">
               <span className="text-neutral-300">
-                Screen {i + 1} <span className="text-neutral-500">{filled ? "· image set" : "· empty"}</span>
+                Screen {i + 1} <span className="text-neutral-400">{filled ? "· image set" : "· empty"}</span>
               </span>
               <button
                 type="button"
@@ -311,7 +311,7 @@ function ScreensSection({ actions }: PanelProps) {
           );
         })}
       </ul>
-      <p className="text-xs text-neutral-500">You can also drop an image onto a screen on the canvas.</p>
+      <p className="text-xs text-neutral-400">You can also drop an image onto a screen on the canvas.</p>
     </Section>
   );
 }
@@ -337,7 +337,7 @@ export function StylePanel({ actions }: PanelProps) {
               aria-pressed={frame.style === dv.id}
               onClick={() => update((d) => void (d.frame.style = dv.id))}
               className={`rounded-lg border px-2 py-2 text-xs transition ${
-                frame.style === dv.id ? "border-orange-500 bg-orange-500/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
+                frame.style === dv.id ? "border-orange-500 bg-orange-700/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
               }`}
             >
               {dv.label}

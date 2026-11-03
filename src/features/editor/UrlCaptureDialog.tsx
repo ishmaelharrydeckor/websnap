@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useModalFocus } from "./useModalFocus";
 
 interface Status {
   enabled: boolean;
@@ -26,7 +27,7 @@ export function UrlCaptureDialog({ onClose, onCapture }: { onClose: () => void; 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const urlRef = useRef<HTMLInputElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export function UrlCaptureDialog({ onClose, onCapture }: { onClose: () => void; 
   useEffect(() => {
     // Keep focus inside the dialog so Escape works even when there is no form to type in.
     (urlRef.current ?? dialogRef.current)?.focus();
-  }, [status]);
+  }, [status, dialogRef]);
 
   async function capture() {
     let address = url.trim();
@@ -166,7 +167,7 @@ export function UrlCaptureDialog({ onClose, onCapture }: { onClose: () => void; 
               >
                 Cancel
               </button>
-              <button type="submit" disabled={busy || !url.trim() || (status.requiresToken && !token)} className="rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40">
+              <button type="submit" disabled={busy || !url.trim() || (status.requiresToken && !token)} className="rounded-lg bg-orange-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40">
                 Capture
               </button>
             </div>

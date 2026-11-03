@@ -173,6 +173,16 @@ don't intersect or cast shadows, fixed light direction, no custom 3D models.
 **Decision: no desktop or browser-extension wrappers.** WebSnap stays a web app (the project owner's call):
 everything it needs (upload, paste, drop, screen capture, recording, export) already works in the browser.
 
+### Polish after Phase 5
+- **Accessibility**: axe-core finds no violations on the home page, the editor's tabs, dialogs, command palette,
+  timeline, layers and the share pages (contrast, names, headings fixed). Dialogs trap and restore focus
+  (`useModalFocus`); the preview canvas has a text label. Not done: a screen-reader walkthrough, and canvas
+  editing (drawing and moving layers) still needs a mouse or touch.
+- **Landing page** at `/` with real screenshots made by the editor itself; the product name lives in
+  `src/lib/site.ts`, so renaming is a one-file change plus docs.
+- **Repo basics**: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, issue and PR templates. Contribution terms
+  (CLA or DCO) are deliberately left undecided in CONTRIBUTING.
+
 ## Templates
 Templates are JSON documents in our own model that keep the user's content when swapped.
 Shipped: Hero, Spotlight, Clean, Bold, Minimal, Soft, Ocean, Studio (Phase 2); iPhone, MacBook,

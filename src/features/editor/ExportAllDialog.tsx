@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { SIZE_PRESETS } from "@/lib/assets/sizes";
 import { downloadBlob, exportAllSizes, formatInfo, type ExportFormat } from "@/lib/export/exporter";
 import { editorStore, renderInputFor } from "./store";
+import { useModalFocus } from "./useModalFocus";
 
 const DEFAULT_SELECTION = ["x-post", "linkedin", "instagram", "story", "og"];
 
 export function ExportAllDialog({ format, scale, onClose, onDone }: { format: ExportFormat; scale: number; onClose: () => void; onDone: (message: string) => void }) {
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const [selected, setSelected] = useState<Set<string>>(() => new Set(DEFAULT_SELECTION));
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const firstRef = useRef<HTMLInputElement>(null);
@@ -50,10 +52,12 @@ export function ExportAllDialog({ format, scale, onClose, onDone }: { format: Ex
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onMouseDown={() => !busy && onClose()}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Export all sizes"
-        className="w-full max-w-md rounded-xl border border-white/10 bg-neutral-900 p-5 shadow-2xl"
+        className="w-full max-w-md rounded-xl border border-white/10 bg-neutral-900 p-5 shadow-2xl outline-none"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape" && !busy) {
@@ -80,7 +84,7 @@ export function ExportAllDialog({ format, scale, onClose, onDone }: { format: Ex
                 />
                 <span>
                   <span className="block text-neutral-200">{p.label}</span>
-                  <span className="text-neutral-500">
+                  <span className="text-neutral-400">
                     {p.width}×{p.height}
                   </span>
                 </span>
@@ -100,7 +104,7 @@ export function ExportAllDialog({ format, scale, onClose, onDone }: { format: Ex
               type="button"
               disabled={busy || selected.size === 0}
               onClick={run}
-              className="rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg bg-orange-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Download ZIP
             </button>

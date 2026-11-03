@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { exportBlob } from "@/lib/export/exporter";
 import { assetsFor, buildUpload, deleteShare, fetchShareStatus, loadMyShares, rememberShare, saveMyShares, uploadShare, type MyShare, type ShareStatus } from "@/lib/share/client";
 import { editorStore, renderInputFor } from "./store";
+import { useModalFocus } from "./useModalFocus";
 
 const mb = (n: number) => (n / 1048576 < 0.1 ? "under 0.1" : (n / 1048576).toFixed(1));
 
 export function ShareDialog({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const [status, setStatus] = useState<ShareStatus | "loading" | "error">("loading");
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
@@ -81,10 +83,12 @@ export function ShareDialog({ onClose, onDone }: { onClose: () => void; onDone: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onMouseDown={() => !busy && onClose()}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Share"
-        className="w-full max-w-md rounded-xl border border-white/10 bg-neutral-900 p-5 shadow-2xl"
+        className="w-full max-w-md rounded-xl border border-white/10 bg-neutral-900 p-5 shadow-2xl outline-none"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape" && !busy) {
@@ -174,7 +178,7 @@ export function ShareDialog({ onClose, onDone }: { onClose: () => void; onDone: 
               type="button"
               disabled={busy || tooBig || (status.requiresToken && !token)}
               onClick={create}
-              className="rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg bg-orange-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? "Uploading…" : "Create link"}
             </button>

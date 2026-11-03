@@ -283,7 +283,7 @@ export function Timeline() {
         onPointerCancel={onTrackUp}
       >
         {ticks.map((t) => (
-          <span key={t} className="pointer-events-none absolute top-0.5 text-[10px] text-neutral-500" style={{ left: `calc(${(t / duration) * 100}% + 3px)` }}>
+          <span key={t} className="pointer-events-none absolute top-0.5 text-[10px] text-neutral-400" style={{ left: `calc(${(t / duration) * 100}% + 3px)` }}>
             {t}s
           </span>
         ))}
@@ -349,7 +349,7 @@ export function Timeline() {
             + {CLIP_LABELS[type]}
           </button>
         ))}
-        <span className="text-neutral-500">Clips ease in and out. Zooms that follow each other closely glide from one to the next.</span>
+        <span className="text-neutral-400">Clips ease in and out. Zooms that follow each other closely glide from one to the next.</span>
       </div>
       <div
         ref={clipTrackRef}
@@ -359,7 +359,7 @@ export function Timeline() {
         onPointerUp={onClipUp}
         onPointerCancel={onClipUp}
       >
-        {clips.length === 0 && <span className="pointer-events-none absolute inset-0 flex items-center px-3 text-xs text-neutral-500">No animations yet</span>}
+        {clips.length === 0 && <span className="pointer-events-none absolute inset-0 flex items-center px-3 text-xs text-neutral-400">No animations yet</span>}
         {clips.map((c) => (
           <div
             key={c.id}

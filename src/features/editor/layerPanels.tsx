@@ -29,7 +29,7 @@ export function InsertPanel({ actions }: PanelProps) {
   return (
     <>
       <Section title="Tools">
-        <p className="text-xs text-neutral-500">Pick a tool, then click or drag on the canvas. Esc returns to select.</p>
+        <p className="text-xs text-neutral-400">Pick a tool, then click or drag on the canvas. Esc returns to select.</p>
         <div className="grid grid-cols-3 gap-2">
           {TOOLS.map((t) => (
             <button
@@ -38,15 +38,15 @@ export function InsertPanel({ actions }: PanelProps) {
               aria-pressed={tool === t.id}
               onClick={() => editorStore.getState().setTool(t.id)}
               className={`rounded-lg border px-2 py-2 text-xs transition ${
-                tool === t.id ? "border-orange-500 bg-orange-500/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
+                tool === t.id ? "border-orange-500 bg-orange-700/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
               }`}
             >
               <div>{t.label}</div>
-              <div className="text-[10px] text-neutral-500">{t.key}</div>
+              <div className="text-[10px] text-neutral-400">{t.key}</div>
             </button>
           ))}
         </div>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-neutral-400">
           Blur, pixelate, redact, highlight, spotlight and magnify stick to the screenshot. The rest can go anywhere.
         </p>
       </Section>
@@ -86,7 +86,7 @@ export function LayersPanel() {
   return (
     <>
       <Section title={`Layers (${layers.length})`}>
-        {layers.length === 0 && <p className="text-xs text-neutral-500">No layers yet. Use the Insert tab to add annotations, text or images.</p>}
+        {layers.length === 0 && <p className="text-xs text-neutral-400">No layers yet. Use the Insert tab to add annotations, text or images.</p>}
         <ul className="flex flex-col gap-1">
           {ordered.map((l) => (
             <li
@@ -154,7 +154,7 @@ export function Inspector() {
               editorStore.getState().updateLayer(layer.id, (l) => setAnchor(doc, l, sizes, on ? screenForLayer(doc, l, sizes) : undefined));
             }}
           />
-          <p className="mt-1 text-xs text-neutral-500">Attached shapes stay put on the screenshot when you change the size, layout or tilt.</p>
+          <p className="mt-1 text-xs text-neutral-400">Attached shapes stay put on the screenshot when you change the size, layout or tilt.</p>
         </div>
       )}
       {layer.type === "text" && <TextField label="Text" value={layer.text} onChange={(text) => set({ text }, "text")} />}

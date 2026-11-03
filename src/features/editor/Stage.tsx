@@ -221,6 +221,8 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
           width={doc.canvas.width}
           height={doc.canvas.height}
           data-testid="editor-canvas"
+          role="img"
+          aria-label={`Preview of your design, ${doc.canvas.width} by ${doc.canvas.height} pixels`}
           className="block size-full rounded-lg shadow-2xl"
         />
         {!atRest && (

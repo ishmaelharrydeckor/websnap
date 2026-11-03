@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WebSnap",
-  description: "Open-source screenshot and screen recording beautifier that runs in your browser.",
+  title: { default: `${SITE_NAME}: ${SITE_TAGLINE}`, template: `%s · ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

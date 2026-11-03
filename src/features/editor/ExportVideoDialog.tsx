@@ -8,6 +8,7 @@ import { ExportCancelled, exportVideo, VIDEO_FORMATS, videoFormatSupport, type S
 import { syncVideos } from "@/lib/video/sync";
 import { formatTime } from "./Timeline";
 import { editorStore, useEditor } from "./store";
+import { useModalFocus } from "./useModalFocus";
 
 const FPS_OPTIONS: Record<VideoFormat, number[]> = { mp4: [24, 30, 60], webm: [24, 30, 60], gif: [10, 15, 20] };
 const SCALES = [1, 0.75, 0.5, 0.25];
@@ -28,6 +29,7 @@ function soundNote(outcome: SoundOutcome, format: VideoFormat, wanted: boolean):
 }
 
 export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const canvas = useEditor((s) => s.doc.canvas);
   const duration = useEditor((s) => s.doc.timeline.duration);
   // Is there any sound to put in the file? (The video's own, unless muted, or a music track.)
@@ -112,10 +114,12 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onMouseDown={() => !busy && onClose()}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Export video"
-        className="w-full max-w-md rounded-xl border border-white/10 bg-neutral-900 p-5 shadow-2xl"
+        className="w-full max-w-md rounded-xl border border-white/10 bg-neutral-900 p-5 shadow-2xl outline-none"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape" && !busy) {
@@ -142,7 +146,7 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
                 >
                   <input type="radio" name="format" className="sr-only" checked={format === f.id} disabled={!available} onChange={() => chooseFormat(f.id)} />
                   <span className="text-neutral-100">{f.label}</span>
-                  <span className="text-neutral-500">{f.id === "mp4" ? "X, LinkedIn, Instagram" : f.id === "webm" ? "Web and docs" : "Loops anywhere"}</span>
+                  <span className="text-neutral-400">{f.id === "mp4" ? "X, LinkedIn, Instagram" : f.id === "webm" ? "Web and docs" : "Loops anywhere"}</span>
                 </label>
               );
             })}
@@ -194,7 +198,7 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
             Include sound
           </label>
         )}
-        <p className="mt-3 text-xs text-neutral-500" data-testid="video-summary">
+        <p className="mt-3 text-xs text-neutral-400" data-testid="video-summary">
           {size.width}×{size.height} · {frames} frames
         </p>
 
@@ -222,7 +226,7 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
             type="button"
             disabled={busy || !support}
             onClick={run}
-            className="rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg bg-orange-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Export
           </button>

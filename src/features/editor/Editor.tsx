@@ -22,6 +22,7 @@ import { formatTime, Timeline } from "./Timeline";
 import { editorStore, primaryImage, renderInputFor, useEditor } from "./store";
 import { usePersistence } from "./usePersistence";
 import { usePlayback } from "./usePlayback";
+import { SITE_NAME } from "@/lib/site";
 
 const TABS: { id: string; label: string; panel: ComponentType<PanelProps> }[] = [
   { id: "templates", label: "Templates", panel: TemplatesPanel },
@@ -243,7 +244,7 @@ export function Editor() {
   return (
     <div className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-white/10 px-4">
-        <span className="mr-3 text-sm font-semibold">WebSnap</span>
+        <h1 className="mr-3 text-sm font-semibold">{SITE_NAME}</h1>
         <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => fileInput.current?.click()}>
           Upload image
         </button>
@@ -310,7 +311,7 @@ export function Editor() {
         <button type="button" className={`${btn} hover:bg-white/10`} disabled={!canRedo} onClick={() => editorStore.getState().redo()}>
           Redo
         </button>
-        <span className="ml-3 text-xs text-neutral-500">{sizeLabel}</span>
+        <span className="ml-3 text-xs text-neutral-400">{sizeLabel}</span>
         <button
           type="button"
           aria-pressed={timelineOpen}
@@ -323,7 +324,6 @@ export function Editor() {
           type="button"
           className={`${btn} ml-2 border border-white/10 text-neutral-400 hover:text-white`}
           onClick={() => !commands && togglePalette()}
-          aria-label="Open command palette"
         >
           Search <kbd className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-xs">Ctrl/⌘ K</kbd>
         </button>
@@ -366,7 +366,7 @@ export function Editor() {
           <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => setShareOpen(true)}>
             Share
           </button>
-          <button type="button" className={`${btn} bg-orange-500 text-white hover:bg-orange-400`} onClick={onExport}>
+          <button type="button" className={`${btn} bg-orange-700 text-white hover:bg-orange-600`} onClick={onExport}>
             Download
           </button>
         </div>
@@ -422,7 +422,7 @@ export function Editor() {
             }}
           />
           {!hasImage && (
-            <p className="pointer-events-none absolute bottom-4 text-xs text-neutral-500">
+            <p className="pointer-events-none absolute bottom-4 text-xs text-neutral-400">
               Paste with Ctrl/⌘ V, drop a file, or use the buttons above.
             </p>
           )}

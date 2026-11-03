@@ -51,7 +51,7 @@ function TemplateThumb({ template }: { template: Template }) {
 export function TemplatesPanel() {
   return (
     <Section title="Templates">
-      <p className="text-xs text-neutral-500">Your screenshot, text and annotations are kept when you switch.</p>
+      <p className="text-xs text-neutral-400">Your screenshot, text and annotations are kept when you switch.</p>
       <div className="grid grid-cols-2 gap-2">
         {TEMPLATES.map((t) => (
           <TemplateThumb key={t.id} template={t} />
@@ -102,7 +102,7 @@ export function BrandPanel() {
             </label>
           )}
         </div>
-        <p className="text-xs text-neutral-500">Saved on this device for every design.</p>
+        <p className="text-xs text-neutral-400">Saved on this device for every design.</p>
       </Section>
 
       <Section title="Logo">
@@ -134,7 +134,7 @@ export function BrandPanel() {
             </button>
           )}
         </div>
-        <p className="text-xs text-neutral-500">A transparent PNG or SVG works best.</p>
+        <p className="text-xs text-neutral-400">A transparent PNG or SVG works best.</p>
       </Section>
 
       <Section title="Type & handle">
@@ -150,7 +150,7 @@ export function BrandPanel() {
       <Section title="Use it">
         <button
           type="button"
-          className="rounded-lg bg-orange-500 px-3 py-2 text-sm font-medium text-white hover:bg-orange-400"
+          className="rounded-lg bg-orange-700 px-3 py-2 text-sm font-medium text-white hover:bg-orange-600"
           onClick={() => apply({ typography: true, background: true, logo: true })}
         >
           Apply brand to this design
