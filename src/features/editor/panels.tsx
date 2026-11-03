@@ -335,6 +335,8 @@ const LAYOUTS: { id: LayoutKind; label: string }[] = [
   { id: "quad", label: "4 screens" },
   { id: "rise", label: "Rising" },
   { id: "bleed", label: "Bleeding" },
+  { id: "frontPhone", label: "Phone in front" },
+  { id: "frontPhoneLeft", label: "Phone front, left" },
 ];
 
 /** A tiny diagram of where the screens go (the canvas is the outline; the dark boxes are screens). */
@@ -346,6 +348,8 @@ function LayoutGlyph({ kind }: { kind: LayoutKind }) {
     quad: [[6, 3, 14, 10], [24, 3, 14, 10], [6, 15, 14, 10], [24, 15, 14, 10]],
     rise: [[7, 10, 30, 24]],
     bleed: [[16, 4, 40, 20]],
+    frontPhone: [[3, 4, 30, 19], [28, 9, 9, 17]],
+    frontPhoneLeft: [[11, 4, 30, 19], [7, 9, 9, 17]],
   };
   return (
     <svg viewBox="0 0 44 28" width="44" height="28" aria-hidden="true" className="overflow-hidden rounded-sm">

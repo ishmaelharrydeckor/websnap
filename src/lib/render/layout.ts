@@ -1,5 +1,5 @@
 import { getDevice, isDeviceFrame } from "../assets/devices";
-import type { DesignDocument, LayoutKind } from "../document/types";
+import type { DesignDocument, FrameStyle, LayoutKind } from "../document/types";
 
 export interface Rect {
   x: number;
@@ -32,9 +32,16 @@ export const FRAME_BAR_HEIGHT: Record<DesignDocument["frame"]["style"], number> 
 /** Size assumed for a screen before an image is loaded. */
 export const PLACEHOLDER_SIZE: ImageSize = { width: 1600, height: 1000 };
 
-export const SLOT_COUNT: Record<LayoutKind, number> = { single: 1, duo: 2, trio: 3, quad: 4, rise: 1, bleed: 1 };
+export const SLOT_COUNT: Record<LayoutKind, number> = { single: 1, duo: 2, trio: 3, quad: 4, rise: 1, bleed: 1, frontPhone: 2, frontPhoneLeft: 2 };
+
+/** Layouts that put a phone in front of a bigger device. The phone (screen 2) borrows screen 1's picture until it has its own. */
+export const isFrontPhone = (kind: LayoutKind) => kind === "frontPhone" || kind === "frontPhoneLeft";
 
 export interface Slot {
+  /** The window or device this screen is drawn in. Usually the document's frame style; a phone in front of a laptop differs. */
+  style: FrameStyle;
+  /** Whether a phone or tablet in this slot lies on its side. */
+  landscape: boolean;
   /** The area this screen may occupy (its column). Tilted screens are scaled to stay inside it. */
   cell: Rect;
   /** The whole window or device, centred in its cell. */
@@ -68,9 +75,8 @@ function fitAspect(cell: Rect, aspect: number): Rect {
 }
 
 /** The frame that fits inside `cell`, centred, for the document's frame style. */
-function fitFrame(doc: DesignDocument, cell: Rect, size: ImageSize): Rect {
-  const style = doc.frame.style;
-  if (isDeviceFrame(style)) return fitAspect(cell, getDevice(style, doc.frame.landscape).aspect);
+function fitFrame(doc: DesignDocument, cell: Rect, size: ImageSize, style: FrameStyle = doc.frame.style, landscape = doc.frame.landscape): Rect {
+  if (isDeviceFrame(style)) return fitAspect(cell, getDevice(style, landscape).aspect);
   // Windows hug the screenshot's aspect ratio, plus the title bar.
   const bar = FRAME_BAR_HEIGHT[style];
   const aspect = size.width / size.height;
@@ -92,14 +98,19 @@ function frameOfWidth(doc: DesignDocument, width: number, x: number, y: number, 
 }
 
 /** Where the screen goes inside a frame. */
-function slotOf(doc: DesignDocument, cell: Rect, frame: Rect): Slot {
-  const style = doc.frame.style;
+function slotOf(doc: DesignDocument, cell: Rect, frame: Rect, style: FrameStyle = doc.frame.style, landscape = doc.frame.landscape): Slot {
   if (isDeviceFrame(style)) {
-    const screen = getDevice(style, doc.frame.landscape).screen(frame);
-    return { cell, frame, content: screen.rect, contentRadius: screen.radius };
+    const screen = getDevice(style, landscape).screen(frame);
+    return { style, landscape, cell, frame, content: screen.rect, contentRadius: screen.radius };
   }
   const bar = FRAME_BAR_HEIGHT[style];
-  return { cell, frame, content: { x: frame.x, y: frame.y + bar, width: frame.width, height: frame.height - bar }, contentRadius: 0 };
+  return { style, landscape, cell, frame, content: { x: frame.x, y: frame.y + bar, width: frame.width, height: frame.height - bar }, contentRadius: 0 };
+}
+
+/** The big device of a "phone in front" layout: the document's frame, unless that is a phone or watch (then a laptop). */
+export function mainFrameStyle(doc: DesignDocument): FrameStyle {
+  const s = doc.frame.style;
+  return s === "iphone" || s === "android" || s === "watch" ? "macbook" : s;
 }
 
 /** Share of the free width a side headline column takes. */
@@ -163,6 +174,20 @@ export function computeLayout(doc: DesignDocument, sizes: (ImageSize | undefined
     const y = areaY + (areaH - frame0.height) / 2;
     const x = side === "right" ? areaX + areaW - w : side === "left" ? areaX : areaX + areaW * 0.1;
     slots.push(slotOf(doc, { x: areaX, y: areaY, width: areaW, height: areaH }, { ...frame0, x, y }));
+  } else if (isFrontPhone(kind)) {
+    const mainStyle = mainFrameStyle(doc);
+    const right = kind === "frontPhone";
+    // The big device takes most of the width; the phone stands in front, overlapping its lower corner.
+    const mainCell: Rect = { x: right ? areaX : areaX + areaW * 0.16, y: areaY, width: areaW * 0.84, height: areaH * 0.9 };
+    const main = fitFrame(doc, mainCell, sizeOf(0), mainStyle, false);
+    const phoneH = Math.min(areaH * 0.84, main.height * 0.82);
+    const phoneW = phoneH * getDevice("iphone", false).aspect;
+    const phoneX = right ? Math.min(areaX + areaW - phoneW, main.x + main.width - phoneW * 0.62) : Math.max(areaX, main.x - phoneW * 0.38);
+    const phoneY = Math.min(areaY + areaH - phoneH, main.y + main.height - phoneH * 0.86);
+    const phone: Rect = { x: phoneX, y: phoneY, width: phoneW, height: phoneH };
+    const grow = phoneW * 0.12;
+    slots.push(slotOf(doc, mainCell, main, mainStyle, false));
+    slots.push(slotOf(doc, { x: phone.x - grow, y: phone.y - grow, width: phone.width + grow * 2, height: phone.height + grow * 2 }, phone, "iphone", false));
   } else if (kind === "quad") {
     const gap = pad * 0.6;
     const cellW = (areaW - gap) / 2;

@@ -183,7 +183,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
     cmds.push({ id: `device-${dv.id}`, group: "Style", label: `Device: ${dv.label}`, keywords: "mockup frame", run: () => store().update((d) => void (d.frame.style = dv.id)) });
   }
 
-  const layouts: [LayoutKind, string][] = [["single", "1 screen"], ["duo", "2 screens"], ["trio", "3 screens"], ["quad", "4 screens"], ["rise", "Rising device"], ["bleed", "Bleeding device"]];
+  const layouts: [LayoutKind, string][] = [["single", "1 screen"], ["duo", "2 screens"], ["trio", "3 screens"], ["quad", "4 screens"], ["rise", "Rising device"], ["bleed", "Bleeding device"], ["frontPhone", "Phone in front of laptop"], ["frontPhoneLeft", "Phone in front, left"]];
   for (const [kind, label] of layouts) {
     cmds.push({ id: `layout-${kind}`, group: "Layout", label: `Layout: ${label}`, keywords: "multiple devices compare", run: () => store().update((d) => void (d.layout.kind = kind)) });
   }

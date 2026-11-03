@@ -14,7 +14,11 @@ export type LayoutKind =
   /** One device rising from the bottom edge, cropped by the canvas. */
   | "rise"
   /** One large device bleeding off the edge opposite the headline column (or the right edge). */
-  | "bleed";
+  | "bleed"
+  /** A laptop, monitor or window with a phone standing in front of it at the bottom right. */
+  | "frontPhone"
+  /** The same, with the phone at the bottom left. */
+  | "frontPhoneLeft";
 
 /** 3D rotation of each screen, in degrees: pitch (x), yaw (y) and roll (z). All zero means flat. */
 export interface Tilt {

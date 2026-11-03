@@ -62,7 +62,7 @@ function sanitizeShot(s: DesignDocument["shot"], fallback: DesignDocument["shot"
   return { ...s, style: SHOT_STYLES.includes(s.style) ? s.style : fallback.style, styleOpacity: opacity };
 }
 
-const LAYOUT_KINDS: LayoutKind[] = ["single", "duo", "trio", "quad", "rise", "bleed"];
+const LAYOUT_KINDS: LayoutKind[] = ["single", "duo", "trio", "quad", "rise", "bleed", "frontPhone", "frontPhoneLeft"];
 const HEADLINE_POSITIONS: DesignDocument["headline"]["position"][] = ["top", "bottom", "left", "right"];
 
 function sanitizeHeadline(h: DesignDocument["headline"], fallback: DesignDocument["headline"]): DesignDocument["headline"] {

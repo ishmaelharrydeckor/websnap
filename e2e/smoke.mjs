@@ -41,7 +41,7 @@ await page.waitForTimeout(900);
 await tab("Style");
 const base = await hash();
 const seen = new Set([base]);
-for (const l of ["2 screens", "3 screens", "4 screens", "Rising", "Bleeding", "1 screen"]) {
+for (const l of ["2 screens", "3 screens", "4 screens", "Rising", "Bleeding", "Phone in front", "Phone front, left", "1 screen"]) {
   await layout(l);
   await page.waitForTimeout(300);
   const h = await hash();
@@ -74,16 +74,45 @@ check("no Rotate toggle on a laptop", (await page.getByLabel("Rotate device").co
 await tab("Text");
 await page.getByRole("button", { name: "Show headline" }).click().catch(() => {});
 await tab("Templates");
-const names = await page.locator("aside details button").evaluateAll((els) => els.map((e) => e.textContent.trim()).filter(Boolean));
-check("there are at least 25 templates", names.length >= 25, String(names.length));
-console.log("templates:", names.join(", "));
+const labels = await page.locator('aside button[aria-label^="Apply "]').evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+const names = labels.map((l) => l.replace(/^Apply /, "").replace(/ template$/, ""));
+check("there are at least 30 templates", names.length >= 30, String(names.length));
 let blank = 0;
 for (const n of names) {
-  await page.locator("aside").getByRole("button", { name: n }).first().click();
-  await page.waitForTimeout(250);
+  await page.getByRole("button", { name: `Apply ${n} template`, exact: true }).click();
+  await page.waitForTimeout(200);
   if ((await hash()) === 0) blank++;
 }
 check("every template draws something", blank === 0, `${blank} blank`);
+
+// ---- template search, filters, saving, export and import
+await page.getByLabel("Search templates").fill("launch");
+await page.waitForTimeout(200);
+check("search narrows the list", (await page.locator('aside button[aria-label^="Apply "]').count()) === 1);
+await page.getByLabel("Search templates").fill("");
+await page.getByRole("group", { name: "Filter templates" }).getByRole("button", { name: "combo", exact: true }).click();
+const combos = await page.locator('aside button[aria-label^="Apply "]').count();
+check("the combo filter shows only phone-in-front templates", combos >= 3 && combos < names.length, String(combos));
+await page.getByRole("group", { name: "Filter templates" }).getByRole("button", { name: "combo", exact: true }).click();
+await page.getByRole("button", { name: "Save current look" }).click();
+await page.getByLabel("Template name").fill("Smoke look");
+await page.getByRole("button", { name: "Save", exact: true }).click();
+await page.waitForTimeout(300);
+check("a saved template appears under Your templates", (await page.getByRole("button", { name: "Apply Smoke look template" }).count()) === 1);
+const [exp] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Export yours" }).click()]);
+check("Export yours downloads a JSON file", exp.suggestedFilename() === "websnap-templates.json");
+await page.getByRole("button", { name: "Delete template Smoke look" }).click();
+check("a template can be deleted", (await page.getByRole("button", { name: "Apply Smoke look template" }).count()) === 0);
+await page.setInputFiles("[data-testid=template-import-input]", {
+  name: "t.json",
+  mimeType: "application/json",
+  buffer: Buffer.from(JSON.stringify({ templates: [{ name: "Imported one", frame: { style: "imac", dark: true }, layout: "frontPhone" }, 42] })),
+});
+await page.waitForTimeout(300);
+check("an imported template appears (and the broken entry is reported)", (await page.getByRole("button", { name: "Apply Imported one template" }).count()) === 1 && /1 skipped/.test(await page.getByRole("status").last().innerText()));
+await page.getByRole("button", { name: "Apply Imported one template" }).click();
+await page.waitForTimeout(250);
+check("applying the imported template draws", (await hash()) !== 0);
 
 // ---- export
 const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download" }).click()]);

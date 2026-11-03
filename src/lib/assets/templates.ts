@@ -5,6 +5,8 @@ import { GRADIENT_PRESETS } from "./backgrounds";
 export interface Template {
   id: string;
   name: string;
+  /** Extra words for search and filter chips (the rest are worked out from the settings). */
+  tags?: string[];
   background: Background;
   frame: { style: FrameStyle; dark: boolean; /** Phones and tablets on their side. */ landscape?: boolean };
   /** Frosted, inset, outlined or bordered edge. Defaults to a plain edge. */
@@ -266,6 +268,43 @@ export const TEMPLATES: Template[] = [
     shot: { padding: 0.1, radius: 14, shadow: 40, shadowMode: "spread" },
     edge: { style: "outline", opacity: 0.7 },
     headline: { show: true, position: "top", align: "left", size: 56, color: "#ffffff" },
+  },
+  {
+    id: "launch",
+    name: "Launch",
+    background: gradient("lavender"),
+    frame: { style: "macbook", dark: false },
+    shot: { padding: 0.07, radius: 14, shadow: 60, shadowMode: "spread" },
+    headline: { show: true, position: "top", align: "center", size: 58, color: "#2b1d4a" },
+    layout: "frontPhone",
+  },
+  {
+    id: "desk",
+    name: "Desk",
+    background: { kind: "wallpaper", id: "glacier" },
+    frame: { style: "imac", dark: false },
+    shot: { padding: 0.06, radius: 14, shadow: 55, shadowMode: "spread" },
+    headline: { show: true, position: "left", align: "left", size: 70, color: "#10222c" },
+    layout: "frontPhone",
+  },
+  {
+    id: "web-app",
+    name: "Web + app",
+    background: { kind: "wallpaper", id: "cosmic" },
+    frame: { style: "browser", dark: true },
+    shot: { padding: 0.07, radius: 14, shadow: 70, shadowMode: "adaptive" },
+    headline: { show: true, position: "top", align: "center", size: 56, color: "#ffffff" },
+    layout: "frontPhoneLeft",
+  },
+  {
+    id: "studio-pair",
+    name: "Studio pair",
+    background: gradient("ink"),
+    frame: { style: "macbook", dark: true },
+    shot: { padding: 0.07, radius: 14, shadow: 75, shadowMode: "adaptive" },
+    headline: { show: true, position: "right", align: "left", size: 66, color: "#ffffff" },
+    layout: "frontPhoneLeft",
+    scene: { kind: "orbs", palette: "ocean", size: 0.9, motion: 0.4 },
   },
 ];
 

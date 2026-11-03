@@ -124,6 +124,76 @@ describe("layout kinds", () => {
   });
 });
 
+describe("phone in front of a laptop", () => {
+  const combo = (kind: LayoutKind, style: DesignDocument["frame"]["style"] = "macbook") =>
+    doc((x) => {
+      x.layout.kind = kind;
+      x.frame.style = style;
+    });
+  const overlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+    Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+
+  it("has two screens: a laptop first, a phone second, drawn in that order (the phone is in front)", () => {
+    const { slots } = computeLayout(combo("frontPhone"), [IMG, IMG]);
+    expect(slots.map((s) => s.style)).toEqual(["macbook", "iphone"]);
+    expect(SLOT_COUNT.frontPhone).toBe(2);
+    expect(SLOT_COUNT.frontPhoneLeft).toBe(2);
+  });
+
+  it("the phone overlaps the laptop's lower corner without covering most of it", () => {
+    for (const kind of ["frontPhone", "frontPhoneLeft"] as LayoutKind[]) {
+      const [main, phone] = computeLayout(combo(kind), [IMG, IMG]).slots.map((s) => s.frame);
+      const o = overlap(main, phone);
+      expect(o, kind).toBeGreaterThan(0);
+      expect(o / (main.width * main.height), kind).toBeLessThan(0.25);
+      expect(phone.height, kind).toBeLessThan(main.height);
+      expect(phone.height, kind).toBeGreaterThan(main.height * 0.5);
+    }
+  });
+
+  it("the phone sits at the right for frontPhone and at the left for frontPhoneLeft", () => {
+    const r = computeLayout(combo("frontPhone"), [IMG, IMG]).slots;
+    const l = computeLayout(combo("frontPhoneLeft"), [IMG, IMG]).slots;
+    const mid = (s: { frame: { x: number; width: number } }) => s.frame.x + s.frame.width / 2;
+    expect(mid(r[1])).toBeGreaterThan(mid(r[0]));
+    expect(mid(l[1])).toBeLessThan(mid(l[0]));
+  });
+
+  it("both devices stay inside the canvas, on every size", () => {
+    for (const [w, h] of [[1600, 900], [1080, 1080], [1080, 1920], [1200, 630]]) {
+      for (const kind of ["frontPhone", "frontPhoneLeft"] as LayoutKind[]) {
+        const d = combo(kind);
+        d.canvas = { sizeId: "x", width: w, height: h };
+        for (const s of computeLayout(d, [IMG, IMG]).slots) {
+          expect(s.frame.x, `${kind} ${w}x${h}`).toBeGreaterThanOrEqual(-1e-6);
+          expect(s.frame.y, `${kind} ${w}x${h}`).toBeGreaterThanOrEqual(-1e-6);
+          expect(s.frame.x + s.frame.width, `${kind} ${w}x${h}`).toBeLessThanOrEqual(w + 1e-6);
+          expect(s.frame.y + s.frame.height, `${kind} ${w}x${h}`).toBeLessThanOrEqual(h + 1e-6);
+        }
+      }
+    }
+  });
+
+  it("uses the document's big device, a window, or a laptop when the frame is a phone or watch", () => {
+    expect(computeLayout(combo("frontPhone", "imac"), [IMG, IMG]).slots[0].style).toBe("imac");
+    expect(computeLayout(combo("frontPhone", "browser"), [IMG, IMG]).slots[0].style).toBe("browser");
+    expect(computeLayout(combo("frontPhone", "iphone"), [IMG, IMG]).slots[0].style).toBe("macbook");
+    expect(computeLayout(combo("frontPhone", "watch"), [IMG, IMG]).slots[0].style).toBe("macbook");
+  });
+
+  it("ordinary layouts give every slot the document's frame style", () => {
+    const d = doc((x) => {
+      x.layout.kind = "trio";
+      x.frame.style = "ipad";
+      x.frame.landscape = true;
+    });
+    for (const s of computeLayout(d, [IMG, IMG, IMG]).slots) {
+      expect(s.style).toBe("ipad");
+      expect(s.landscape).toBe(true);
+    }
+  });
+});
+
 describe("devices", () => {
   it("every device has a usable screen inside its frame", () => {
     for (const dv of DEVICE_LIST) {

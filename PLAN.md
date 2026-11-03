@@ -216,6 +216,17 @@ search (needs an API key and a service), a "liquid glass" refraction look, and l
   custom drag-to-position of a device on the canvas, and the headline column is plain wrapped text.
 - `npm run e2e` runs a browser smoke test (`e2e/smoke.mjs`) against a running server.
 
+### Mixed devices and a template system
+- **Phone in front** layouts (`frontPhone`, `frontPhoneLeft`): a laptop, iMac or window with an iPhone overlapping its
+  lower corner. Each screen can now have its own frame style, so layouts can mix devices. The phone shows screen 1's
+  picture until it has its own. Four templates use it (Launch, Desk, Web + app, Studio pair).
+- **Template search and filters** (chips such as desktop, phone, combo, dark, 3d, glass, worked out from each
+  template's settings), **Save current look** as a template, **Export** and **Import** template files (JSON, repaired
+  on import so a bad file can't break the editor). Format and quality bar in `docs/TEMPLATES.md`.
+- **Strategy** in `docs/STRATEGY.md`; how to carry on locally in `docs/CONTINUE_LOCALLY.md`.
+- Limits: only the phone in the combo is fixed to an iPhone; no more than two screens in a combo; no contrast or
+  visual-snapshot checks for templates yet.
+
 ## Templates
 Templates are JSON documents in our own model that keep the user's content when swapped.
 Shipped: Hero, Spotlight, Clean, Bold, Minimal, Soft, Ocean, Studio (Phase 2); iPhone, MacBook,

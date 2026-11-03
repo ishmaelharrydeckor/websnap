@@ -1,14 +1,14 @@
 import { getDevice, isDeviceFrame } from "../assets/devices";
 import { fontStack } from "../assets/fonts";
 import { getWallpaper } from "../assets/wallpapers";
-import type { Background, DesignDocument, Layer } from "../document/types";
+import type { Background, DesignDocument, FrameStyle, Layer } from "../document/types";
 import { averageColor, makeCanvas, mix, withAlpha } from "./color";
 import { frameStateAt, layerAlpha, documentAt } from "../timeline/animation";
 import { canAnchor, LAYER_SPACE } from "./geometry";
 import { applyEffects, hasEffects } from "./effects";
 import { drawScene, sceneFaces } from "./scene3d";
 import { drawCanvasLayer, drawShotLayer, type RenderableImage } from "./layers";
-import { computeLayout, coverRect, FRAME_BAR_HEIGHT, slotOfLayer, type Rect, type Slot } from "./layout";
+import { computeLayout, coverRect, FRAME_BAR_HEIGHT, isFrontPhone, slotOfLayer, type Rect, type Slot } from "./layout";
 import { drawProjected, fitScale, isTilted, projectedQuad, renderToOffscreen, screenTransform } from "./perspective";
 
 export type { RenderableImage };
@@ -83,7 +83,7 @@ export function roundedRectPath(ctx: CanvasRenderingContext2D, r: Rect, radius: 
   ctx.closePath();
 }
 
-function drawTitleBar(ctx: CanvasRenderingContext2D, doc: DesignDocument, rect: Rect, bar: number) {
+function drawTitleBar(ctx: CanvasRenderingContext2D, doc: DesignDocument, rect: Rect, bar: number, style: FrameStyle) {
   const dark = doc.frame.dark;
   ctx.fillStyle = dark ? "#2b2b2f" : "#f3f3f5";
   ctx.fillRect(rect.x, rect.y, rect.width, bar);
@@ -97,12 +97,12 @@ function drawTitleBar(ctx: CanvasRenderingContext2D, doc: DesignDocument, rect: 
     ctx.fill();
   });
 
-  if (doc.frame.style === "macos") return;
+  if (style === "macos") return;
 
   // Address pill: left-aligned for "browser", centred for "safari".
   const pillH = bar * 0.56;
   const pillW = Math.min(rect.width * 0.5, 520);
-  const pillX = doc.frame.style === "safari" ? rect.x + (rect.width - pillW) / 2 : rect.x + 110;
+  const pillX = style === "safari" ? rect.x + (rect.width - pillW) / 2 : rect.x + 110;
   const pill: Rect = { x: pillX, y: rect.y + (bar - pillH) / 2, width: Math.min(pillW, rect.width - 130), height: pillH };
   if (pill.width <= 40) return;
   roundedRectPath(ctx, pill, pillH / 2);
@@ -232,10 +232,10 @@ function drawPlaceholder(ctx: CanvasRenderingContext2D, doc: DesignDocument, con
 
 /** Adds the outline of a window or device to the current path. */
 function outlinePath(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot) {
-  const style = doc.frame.style;
+  const style = slot.style;
   if (isDeviceFrame(style)) {
     ctx.beginPath();
-    getDevice(style, doc.frame.landscape).outline(ctx, slot.frame);
+    getDevice(style, slot.landscape).outline(ctx, slot.frame);
   } else {
     roundedRectPath(ctx, slot.frame, doc.shot.radius);
   }
@@ -287,7 +287,7 @@ export function stylePad(doc: DesignDocument): number {
 /** Rounded rectangle path for the ring a style draws around a slot's frame. */
 function ringPath(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot, grow: number) {
   const f = slot.frame;
-  const base = isDeviceFrame(doc.frame.style) ? Math.min(f.width, f.height) * 0.06 : doc.shot.radius;
+  const base = isDeviceFrame(slot.style) ? Math.min(f.width, f.height) * 0.06 : doc.shot.radius;
   roundedRectPath(ctx, { x: f.x - grow, y: f.y - grow, width: f.width + grow * 2, height: f.height + grow * 2 }, base + grow);
 }
 
@@ -358,8 +358,8 @@ function drawCard(
   alphaOf: (l: Layer) => number,
 ) {
   const { frame, content } = slot;
-  const style = doc.frame.style;
-  const device = isDeviceFrame(style) ? getDevice(style, doc.frame.landscape) : undefined;
+  const style = slot.style;
+  const device = isDeviceFrame(style) ? getDevice(style, slot.landscape) : undefined;
   const bar = FRAME_BAR_HEIGHT[style];
 
   // Where the whole image lands: stretched into windows (which match its aspect), cover-fitted into device screens.
@@ -375,7 +375,7 @@ function drawCard(
     ctx.clip();
     ctx.fillStyle = doc.frame.dark ? "#1c1c1f" : "#ffffff";
     ctx.fill();
-    if (bar > 0) drawTitleBar(ctx, doc, frame, bar);
+    if (bar > 0) drawTitleBar(ctx, doc, frame, bar, style);
     ctx.beginPath();
     ctx.rect(content.x, content.y, content.width, content.height);
   }
@@ -513,7 +513,9 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
   ctx.translate(fg.x, fg.y);
   slots.forEach((slot, i) => {
     const shotLayers = layers.filter((l) => LAYER_SPACE[l.type] === "shot" && slotOfLayer(l, slots.length) === i);
-    drawSlot(ctx, doc, slot, screens[i], shotLayers, alphaOf);
+    // The phone in a "phone in front" layout shows screen 1's picture until it has one of its own.
+    const screen = screens[i] ?? (i > 0 && isFrontPhone(doc.layout.kind) ? screens[0] : undefined);
+    drawSlot(ctx, doc, slot, screen, shotLayers, alphaOf);
   });
 
   ctx.restore();
