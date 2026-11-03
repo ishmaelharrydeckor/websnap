@@ -29,7 +29,7 @@ import { editorStore, primaryImage, renderInputFor, useEditor } from "./store";
 import { usePersistence } from "./usePersistence";
 import { usePlayback } from "./usePlayback";
 import { createDefaultDocument } from "@/lib/document/defaults";
-import { SITE_NAME } from "@/lib/site";
+import { REPO_URL, SITE_NAME } from "@/lib/site";
 
 const TABS: { id: keyof typeof icons; label: string; panel: ComponentType<PanelProps> }[] = [
   { id: "templates", label: "Templates", panel: TemplatesPanel },
@@ -384,6 +384,14 @@ export function Editor() {
             Download
           </button>
           <Toolbar label="Help">
+            <a
+              href={`${REPO_URL}/issues/new?template=tester_feedback.md`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg px-2 py-1.5 text-xs text-neutral-300 hover:bg-white/10 hover:text-white"
+            >
+              Feedback<span className="sr-only"> (opens GitHub in a new tab)</span>
+            </a>
             <IconBtn label="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)}>
               {icons.help}
             </IconBtn>
