@@ -154,6 +154,16 @@ export function projectSlides(s: Pick<EditorState, "slides" | "active" | "doc">)
   return mergeSlides(s.slides, s.active, s.doc);
 }
 
+/** In a seamless project every slide shows a slice of one background, so they all must hold the active slide's. */
+function shareBackground(get: () => EditorState, set: (partial: Partial<EditorState>) => void) {
+  const s = get();
+  if (!s.continuous || s.slides.length < 2) return;
+  const key = JSON.stringify(s.doc.background);
+  if (s.slides.every((d, i) => i === s.active || JSON.stringify(d.background) === key)) return;
+  set({ slides: s.slides.map((d, i) => (i === s.active ? d : { ...d, background: structuredClone(s.doc.background) })) });
+}
+
+
 export function createEditorStore() {
   let lastKey: string | undefined;
   let lastTime = 0;
@@ -190,6 +200,7 @@ export function createEditorStore() {
         future: [],
         revision: revision + 1,
       });
+      shareBackground(get, set);
     },
 
     setImage: (image, slot) => {
@@ -325,6 +336,7 @@ export function createEditorStore() {
       if (past.length === 0) return;
       lastKey = undefined;
       set({ doc: past[past.length - 1], past: past.slice(0, -1), future: [doc, ...future], revision: revision + 1 });
+      shareBackground(get, set);
     },
 
     redo: () => {
@@ -332,6 +344,7 @@ export function createEditorStore() {
       if (future.length === 0) return;
       lastKey = undefined;
       set({ doc: future[0], past: [...past, doc], future: future.slice(1), revision: revision + 1 });
+      shareBackground(get, set);
     },
 
     setMusic: (audio, name) => {
@@ -463,7 +476,10 @@ export function createEditorStore() {
       set({ slides: merged, active, doc: merged[active], past: [], future: [], revision: s.revision + 1 });
     },
 
-    setContinuous: (on) => set((s) => ({ continuous: on, revision: s.revision + 1 })),
+    setContinuous: (on) => {
+      set((s) => ({ continuous: on, revision: s.revision + 1 }));
+      shareBackground(get, set);
+    },
 
     setCanvas: (canvas, coalesceKey) => {
       // The active slide goes through update (so it is undoable); the others follow silently.

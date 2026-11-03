@@ -357,6 +357,28 @@ describe("releasing media on load", () => {
 
 
 describe("slides", () => {
+  const bgKinds = (store: ReturnType<typeof createEditorStore>) => projectSlides(store.getState()).map((d) => d.background.kind);
+  it("keeps one background across slides while seamless is on", () => {
+    const store = createEditorStore();
+    store.getState().addSlide("duplicate");
+    store.getState().addSlide("duplicate");
+    store.getState().setContinuous(true);
+    store.getState().update((d) => void (d.background = { kind: "solid", color: "#123456" }));
+    expect(bgKinds(store)).toEqual(["solid", "solid", "solid"]);
+    store.getState().undo();
+    expect(new Set(projectSlides(store.getState()).map((d) => JSON.stringify(d.background))).size).toBe(1);
+  });
+  it("adopts the active slide's background when seamless is turned on, and leaves slides alone when off", () => {
+    const store = createEditorStore();
+    store.getState().addSlide("duplicate");
+    store.getState().update((d) => void (d.background = { kind: "solid", color: "#ff0000" }));
+    expect(bgKinds(store)[0]).not.toBe("solid");
+    store.getState().setContinuous(true);
+    expect(bgKinds(store)).toEqual(["solid", "solid"]);
+    store.getState().setContinuous(false);
+    store.getState().update((d) => void (d.background = { kind: "transparent" }));
+    expect(bgKinds(store)).toEqual(["solid", "transparent"]);
+  });
   const headlines = (store: ReturnType<typeof createEditorStore>) => projectSlides(store.getState()).map((d) => d.headline.text);
   const setText = (store: ReturnType<typeof createEditorStore>, t: string) => store.getState().update((d) => void (d.headline.text = t));
   const three = () => {
