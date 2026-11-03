@@ -22,6 +22,8 @@ export interface RenderInput {
   draft?: Layer;
   /** Colour painted under everything, for formats that can't hold transparency (JPEG). */
   backing?: string;
+  /** This slide's place in a seamless background that runs across `count` slides. */
+  span?: { index: number; count: number };
 }
 
 function fillBackground(ctx: CanvasRenderingContext2D, bg: Background, w: number, h: number, images?: Record<string, RenderableImage>) {
@@ -486,6 +488,19 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
     ctx.translate(-Math.max(halfW, Math.min(cw - halfW, fx)), -Math.max(halfH, Math.min(ch - halfH, fy)));
   }
 
+  // In a seamless carousel the background is one wide picture and each slide shows its own slice of it.
+  const span = input.span;
+  const paintBackground = () => {
+    if (span && span.count > 1) {
+      ctx.save();
+      ctx.translate(-span.index * cw, 0);
+      fillBackground(ctx, doc.background, cw * span.count, ch, input.images);
+      ctx.restore();
+    } else {
+      fillBackground(ctx, doc.background, cw, ch, input.images);
+    }
+  };
+
   // Parallax: the screens move by the full drift and the background by less, so the layers separate.
   const fg = { x: state.drift.x * unit, y: state.drift.y * unit };
   const bg = { x: fg.x * 0.4, y: fg.y * 0.4 };
@@ -496,10 +511,10 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
     ctx.translate(cw / 2 + bg.x, ch / 2 + bg.y);
     ctx.scale(grow, grow);
     ctx.translate(-cw / 2, -ch / 2);
-    fillBackground(ctx, doc.background, cw, ch, input.images);
+    paintBackground();
     ctx.restore();
   } else {
-    fillBackground(ctx, doc.background, cw, ch, input.images);
+    paintBackground();
   }
 
   // 3D shapes: most sit behind the screens and drift less than they do; a few float in front and drift more.

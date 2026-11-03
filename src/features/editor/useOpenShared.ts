@@ -18,9 +18,9 @@ export function useOpenShared(notify: (message: string) => void) {
         if (cancelled) return;
         // Opening replaces the design saved in this browser, so check before throwing someone's work away.
         const existing = await loadCurrentDesign().catch(() => undefined);
-        const hasWork = existing && (existing.doc.media.length > 0 || existing.doc.layers.length > 0);
+        const hasWork = existing && existing.slides.some((d) => d.media.length > 0 || d.layers.length > 0);
         if (hasWork && !window.confirm("Open the shared design? It will replace the design saved in this browser.")) return;
-        const { images, audios } = await loadMediaFor(opened.doc, opened.blobs);
+        const { images, audios } = await loadMediaFor(opened.doc.media, opened.blobs);
         if (cancelled) return;
         editorStore.getState().load(opened.doc, images, audios);
         if (opened.doc.media.some((m) => m.kind === "video")) editorStore.getState().setTimelineOpen(true);

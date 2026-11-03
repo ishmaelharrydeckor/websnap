@@ -1,13 +1,13 @@
-import type { DesignDocument } from "@/lib/document/types";
+import type { MediaItem } from "@/lib/document/types";
 import { blobToLoadedMedia } from "@/features/capture/import";
 import { isAudioBlob, loadAudio } from "@/lib/video/media";
 import type { LoadedAudio, LoadedImage } from "@/lib/state/editor-store";
 
 /** Turns a design's saved files into the media the editor works with. One unreadable file doesn't stop the rest. */
-export async function loadMediaFor(doc: DesignDocument, blobs: Record<string, Blob>): Promise<{ images: LoadedImage[]; audios: LoadedAudio[] }> {
+export async function loadMediaFor(media: MediaItem[], blobs: Record<string, Blob>): Promise<{ images: LoadedImage[]; audios: LoadedAudio[] }> {
   const entries = Object.entries(blobs);
   const images = await Promise.allSettled(
-    entries.filter(([, blob]) => !isAudioBlob(blob)).map(([id, blob]) => blobToLoadedMedia(blob, id, doc.media.find((m) => m.assetId === id)?.duration)),
+    entries.filter(([, blob]) => !isAudioBlob(blob)).map(([id, blob]) => blobToLoadedMedia(blob, id, media.find((m) => m.assetId === id)?.duration)),
   );
   const audios = await Promise.allSettled(entries.filter(([, blob]) => isAudioBlob(blob)).map(([id, blob]) => loadAudio(blob, id)));
   return {

@@ -23,6 +23,7 @@ import {
 import type { Point } from "@/lib/render/perspective";
 import { documentAt, frameStateAt, isAtRest } from "@/lib/timeline/animation";
 import { renderDocument } from "@/lib/render/render";
+import { spanFor } from "@/lib/project/project";
 import { editorStore, screenImages, useEditor } from "./store";
 
 type Gesture =
@@ -40,6 +41,9 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
   const loaded = useEditor((s) => s.images);
   const time = useEditor((s) => s.playback.time);
   const fast = useEditor((s) => s.ui.fastPreview);
+  const span = useEditor((s) => spanFor(s.active, s.slides.length, s.continuous));
+  const spanIndex = span?.index;
+  const spanCount = span?.count;
   // A half-size preview draws a quarter of the pixels; the overlay and all the geometry still work in design coordinates.
   const previewScale = fast ? 0.5 : 1;
   // Bumped when a video finishes seeking or decoding a frame, so a paused preview redraws.
@@ -86,10 +90,10 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
     const ctx = canvasRef.current?.getContext("2d");
     if (ctx) {
       ctx.setTransform(previewScale, 0, 0, previewScale, 0, 0);
-      renderDocument(ctx, doc, { screens: screens.map((i) => i?.source), images, draft }, time);
+      renderDocument(ctx, doc, { screens: screens.map((i) => i?.source), images, draft, span: spanIndex === undefined || spanCount === undefined ? undefined : { index: spanIndex, count: spanCount } }, time);
     }
     // `time` and `frame` aren't read here, but a new playhead position or decoded video frame means the picture changed.
-  }, [doc, screens, images, draft, time, frame, previewScale]);
+  }, [doc, screens, images, draft, time, frame, previewScale, spanIndex, spanCount]);
 
   const scale = avail.width > 0 ? Math.min(avail.width / doc.canvas.width, avail.height / doc.canvas.height) : 0;
   const width = doc.canvas.width * scale;

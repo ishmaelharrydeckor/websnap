@@ -25,7 +25,8 @@ function CustomSize() {
   const set = (key: "width" | "height", raw: string) => {
     const n = Math.round(Number(raw));
     if (!Number.isFinite(n) || n < 16) return;
-    update((d) => void (d.canvas = { ...d.canvas, sizeId: "custom", [key]: Math.min(8192, n) }), `canvas-${key}`);
+    const c = editorStore.getState().doc.canvas;
+    editorStore.getState().setCanvas({ ...c, sizeId: "custom", [key]: Math.min(8192, n) }, `canvas-${key}`);
   };
   const field = "w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-sm";
   return (
@@ -57,9 +58,7 @@ export function CanvasPanel() {
             type="button"
             aria-pressed={sizeId === p.id}
             onClick={() =>
-              update((d) => {
-                d.canvas = { sizeId: p.id, width: p.width, height: p.height };
-              })
+              editorStore.getState().setCanvas({ sizeId: p.id, width: p.width, height: p.height })
             }
             className={`rounded-lg border px-2 py-2 text-left text-xs transition ${
               sizeId === p.id ? "border-orange-500 bg-orange-700/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"

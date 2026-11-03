@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { collectAssetIds } from "../document/assets";
 import { removeSegment, setSpeed, splitAt, trimSegment } from "../timeline/segments";
-import { createEditorStore, primaryImage, type LoadedImage } from "./editor-store";
+import { createEditorStore, primaryImage, projectSlides, type LoadedImage } from "./editor-store";
 
 const fakeImage = (id: string): LoadedImage => ({
   id,
@@ -352,5 +352,154 @@ describe("releasing media on load", () => {
     const next = store.getState();
     next.load(next.doc, [withDispose("b")]);
     expect(disposed).toEqual(["a"]);
+  });
+});
+
+
+describe("slides", () => {
+  const headlines = (store: ReturnType<typeof createEditorStore>) => projectSlides(store.getState()).map((d) => d.headline.text);
+  const setText = (store: ReturnType<typeof createEditorStore>, t: string) => store.getState().update((d) => void (d.headline.text = t));
+  const three = () => {
+    const store = createEditorStore();
+    setText(store, "one");
+    store.getState().addSlide("blank");
+    setText(store, "two");
+    store.getState().addSlide("blank");
+    setText(store, "three");
+    return store;
+  };
+
+  it("starts with one slide", () => {
+    const s = createEditorStore().getState();
+    expect(s.slides).toHaveLength(1);
+    expect(s.active).toBe(0);
+    expect(s.continuous).toBe(false);
+  });
+
+  it("adds a slide after the current one and moves to it", () => {
+    const store = createEditorStore();
+    setText(store, "first");
+    expect(store.getState().addSlide("blank")).toBe(true);
+    const s = store.getState();
+    expect(s.slides).toHaveLength(2);
+    expect(s.active).toBe(1);
+    expect(s.doc.media).toEqual([]);
+  });
+
+  it("a duplicate keeps the content, a blank one keeps only the look", () => {
+    const store = createEditorStore();
+    store.getState().setImage(fakeImage("a"));
+    store.getState().update((d) => void (d.background = { kind: "solid", color: "#123456" }));
+    store.getState().addSlide("duplicate");
+    expect(store.getState().doc.media).toHaveLength(1);
+    store.getState().addSlide("blank");
+    expect(store.getState().doc.media).toHaveLength(0);
+    expect(store.getState().doc.background).toEqual({ kind: "solid", color: "#123456" });
+  });
+
+  it("keeps each slide's edits when switching between them", () => {
+    const store = three();
+    expect(headlines(store)).toEqual(["one", "two", "three"]);
+    store.getState().selectSlide(0);
+    expect(store.getState().doc.headline.text).toBe("one");
+    setText(store, "ONE");
+    store.getState().selectSlide(2);
+    expect(store.getState().doc.headline.text).toBe("three");
+    expect(headlines(store)).toEqual(["ONE", "two", "three"]);
+  });
+
+  it("undo works within a slide and its history waits while you are on another", () => {
+    const store = three(); // on slide 3, whose headline edit is its first change
+    store.getState().selectSlide(0);
+    setText(store, "ONE");
+    store.getState().selectSlide(2);
+    expect(store.getState().past).toHaveLength(1); // this slide's own earlier edit is still there
+    setText(store, "THREE");
+    store.getState().selectSlide(0);
+    store.getState().undo();
+    expect(store.getState().doc.headline.text).toBe("one");
+    store.getState().selectSlide(2);
+    store.getState().undo();
+    expect(store.getState().doc.headline.text).toBe("three");
+  });
+
+  it("selecting the active or an invalid slide changes nothing", () => {
+    const store = three();
+    const before = store.getState().revision;
+    store.getState().selectSlide(2);
+    store.getState().selectSlide(-1);
+    store.getState().selectSlide(9);
+    expect(store.getState().revision).toBe(before);
+  });
+
+  it("removes a slide, never the last, and keeps the active one sensible", () => {
+    const store = three();
+    store.getState().selectSlide(1);
+    store.getState().removeSlide(0);
+    expect(headlines(store)).toEqual(["two", "three"]);
+    expect(store.getState().doc.headline.text).toBe("two");
+    store.getState().removeSlide(0);
+    expect(headlines(store)).toEqual(["three"]);
+    store.getState().removeSlide(0);
+    expect(headlines(store)).toEqual(["three"]);
+  });
+
+  it("moves a slide and the active slide follows it", () => {
+    const store = three();
+    store.getState().selectSlide(0);
+    store.getState().moveSlideBy(0, 1);
+    expect(headlines(store)).toEqual(["two", "one", "three"]);
+    expect(store.getState().active).toBe(1);
+    expect(store.getState().doc.headline.text).toBe("one");
+    store.getState().moveSlideBy(1, -1);
+    store.getState().moveSlideBy(0, -1); // already first: nothing happens
+    expect(headlines(store)).toEqual(["one", "two", "three"]);
+  });
+
+  it("the canvas size applies to every slide, and undo only reverts the current one", () => {
+    const store = three();
+    store.getState().setCanvas({ sizeId: "story", width: 1080, height: 1920 });
+    expect(projectSlides(store.getState()).every((d) => d.canvas.width === 1080 && d.canvas.height === 1920)).toBe(true);
+    store.getState().undo();
+    expect(store.getState().doc.canvas.width).not.toBe(1080);
+    store.getState().selectSlide(0);
+    expect(store.getState().doc.canvas.width).toBe(1080);
+  });
+
+  it("updateAllSlides changes every slide", () => {
+    const store = three();
+    store.getState().updateAllSlides((d) => void (d.shot.radius = 33));
+    expect(projectSlides(store.getState()).every((d) => d.shot.radius === 33)).toBe(true);
+    expect(store.getState().past.length).toBeGreaterThan(0);
+  });
+
+  it("toggles the seamless background and counts it as a change for autosave", () => {
+    const store = createEditorStore();
+    const before = store.getState().revision;
+    store.getState().setContinuous(true);
+    expect(store.getState().continuous).toBe(true);
+    expect(store.getState().revision).toBeGreaterThan(before);
+  });
+
+  it("replaceSlides and loadProject install a whole set and clear history", () => {
+    const store = three();
+    const other = createEditorStore();
+    const slides = projectSlides(other.getState());
+    store.getState().replaceSlides([slides[0], slides[0], slides[0]], 1);
+    expect(store.getState().slides).toHaveLength(3);
+    expect(store.getState().active).toBe(1);
+    expect(store.getState().past).toEqual([]);
+    store.getState().loadProject({ slides: [slides[0], slides[0]], active: 9, continuous: true }, []);
+    expect(store.getState().slides).toHaveLength(2);
+    expect(store.getState().active).toBe(1); // clamped
+    expect(store.getState().continuous).toBe(true);
+  });
+
+  it("load() goes back to a single slide", () => {
+    const store = three();
+    store.getState().setContinuous(true);
+    store.getState().load(projectSlides(createEditorStore().getState())[0], []);
+    expect(store.getState().slides).toHaveLength(1);
+    expect(store.getState().continuous).toBe(false);
   });
 });

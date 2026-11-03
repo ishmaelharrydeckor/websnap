@@ -12,6 +12,7 @@ import { ExportAllDialog } from "./ExportAllDialog";
 import { ExportVideoDialog } from "./ExportVideoDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { icons } from "./icons";
+import { SlideStrip } from "./SlideStrip";
 import { ShareDialog } from "./ShareDialog";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { UrlCaptureDialog } from "./UrlCaptureDialog";
@@ -489,6 +490,7 @@ export function Editor() {
           </div>
         </main>
       </div>
+      <SlideStrip onNewSet={() => notify("New set dialog coming next")} onNotify={notify} />
       {timelineOpen && <Timeline />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       {resetOpen && (

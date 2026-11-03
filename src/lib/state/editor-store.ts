@@ -4,6 +4,7 @@ import { EMPTY_BRAND, type Brand } from "../brand/brand";
 import type { DesignDocument, Layer, MediaItem } from "../document/types";
 import type { Tool } from "../render/geometry";
 import { SLOT_COUNT } from "../render/layout";
+import { activeAfterMove, activeAfterRemove, blankLike, insertSlide, MAX_SLIDES, mergeSlides, moveSlide as moveSlideTo, removeSlide as removeSlideAt, spanFor, withCanvas } from "../project/project";
 import { defaultClip, fitClips } from "../timeline/animation";
 import { timelineDuration, wholeVideo } from "../timeline/segments";
 import type { AnimationClip, Segment } from "../document/types";
@@ -61,7 +62,16 @@ export interface LoadedAudio {
 }
 
 export interface EditorState {
+  /** The slide being edited. Every edit, undo and the canvas work on this one. */
   doc: DesignDocument;
+  /**
+   * All slides of the project. The entry at `active` is a stale copy: the live version is `doc`
+   * (use `projectSlides` to get an up-to-date list).
+   */
+  slides: DesignDocument[];
+  active: number;
+  /** One background that runs across all slides, as in a swipeable carousel. */
+  continuous: boolean;
   ui: UiState;
   playback: Playback;
   /** The saved brand kit. Lives outside the document, so it is not part of undo history. */
@@ -120,14 +130,42 @@ export interface EditorState {
   /** Sets the music track from a loaded file (replacing any current one). */
   setMusic: (audio: LoadedAudio, name: string) => void;
   removeMusic: () => void;
+
+  // ---- Slides (carousels and store galleries)
+  selectSlide: (index: number) => void;
+  /** Adds a slide after the current one: a copy of it, or an empty one with the same look. Returns false at the limit. */
+  addSlide: (mode: "duplicate" | "blank") => boolean;
+  removeSlide: (index: number) => void;
+  /** Moves a slide one place earlier (-1) or later (+1). */
+  moveSlideBy: (index: number, direction: 1 | -1) => void;
+  setContinuous: (on: boolean) => void;
+  /** Resizes the canvas of every slide (they always share one size). */
+  setCanvas: (canvas: DesignDocument["canvas"], coalesceKey?: string) => void;
+  /** Runs a change on every slide, as one undo step on the current slide. */
+  updateAllSlides: (recipe: (draft: DesignDocument) => void) => void;
+  /** Replaces all slides (a new set), keeping the pictures already loaded. Clears history. */
+  replaceSlides: (slides: DesignDocument[], active?: number) => void;
+  /** Replace everything with a whole project. Clears history. */
+  loadProject: (project: { slides: DesignDocument[]; active: number; continuous: boolean }, images: LoadedImage[], audios?: LoadedAudio[]) => void;
+}
+
+/** Every slide with the live document in the active position. */
+export function projectSlides(s: Pick<EditorState, "slides" | "active" | "doc">): DesignDocument[] {
+  return mergeSlides(s.slides, s.active, s.doc);
 }
 
 export function createEditorStore() {
   let lastKey: string | undefined;
   let lastTime = 0;
 
+  // Undo history of the slides that are not being edited, so switching back finds it. Cleared when slides are added, removed or moved.
+  const histories = new Map<number, { past: DesignDocument[]; future: DesignDocument[] }>();
+
   return createStore<EditorState>()((set, get) => ({
     doc: createDefaultDocument(),
+    slides: [createDefaultDocument()],
+    active: 0,
+    continuous: false,
     ui: { tool: "select", selectedId: null, timelineOpen: false, fastPreview: false, selectedSegment: null, selectedClip: null },
     playback: { time: 0, playing: false },
     brand: EMPTY_BRAND,
@@ -317,8 +355,12 @@ export function createEditorStore() {
       const { images: oldImages, audios: oldAudios } = get();
       const keep = new Set([...images.map((i) => i.id), ...audios.map((a) => a.id)]);
       for (const m of [...Object.values(oldImages), ...Object.values(oldAudios)]) if (!keep.has(m.id)) m.dispose?.();
+      histories.clear();
       set((s) => ({
         doc,
+        slides: [doc],
+        active: 0,
+        continuous: false,
         ui: { ...s.ui, selectedId: null },
         playback: { time: 0, playing: false },
         past: [],
@@ -327,6 +369,127 @@ export function createEditorStore() {
         audios: Object.fromEntries(audios.map((a) => [a.id, a])),
         revision: s.revision + 1,
       }));
+    },
+
+    loadProject: (project, images, audios = []) => {
+      lastKey = undefined;
+      const { images: oldImages, audios: oldAudios } = get();
+      const keep = new Set([...images.map((i) => i.id), ...audios.map((a) => a.id)]);
+      for (const m of [...Object.values(oldImages), ...Object.values(oldAudios)]) if (!keep.has(m.id)) m.dispose?.();
+      histories.clear();
+      const active = Math.max(0, Math.min(project.active, project.slides.length - 1));
+      set((s) => ({
+        doc: project.slides[active],
+        slides: project.slides,
+        active,
+        continuous: project.continuous,
+        ui: { ...s.ui, selectedId: null, selectedSegment: null, selectedClip: null },
+        playback: { time: 0, playing: false },
+        past: [],
+        future: [],
+        images: Object.fromEntries(images.map((i) => [i.id, i])),
+        audios: Object.fromEntries(audios.map((a) => [a.id, a])),
+        revision: s.revision + 1,
+      }));
+    },
+
+    selectSlide: (index) => {
+      const s = get();
+      if (index === s.active || index < 0 || index >= s.slides.length) return;
+      lastKey = undefined;
+      histories.set(s.active, { past: s.past, future: s.future });
+      const merged = projectSlides(s);
+      const saved = histories.get(index);
+      set({
+        slides: merged,
+        active: index,
+        doc: merged[index],
+        past: saved?.past ?? [],
+        future: saved?.future ?? [],
+        ui: { ...s.ui, selectedId: null, selectedSegment: null, selectedClip: null, tool: "select" },
+        playback: { time: 0, playing: false },
+        revision: s.revision + 1,
+      });
+    },
+
+    addSlide: (mode) => {
+      const s = get();
+      if (s.slides.length >= MAX_SLIDES) return false;
+      lastKey = undefined;
+      const merged = projectSlides(s);
+      const slide = mode === "duplicate" ? structuredClone(s.doc) : blankLike(s.doc);
+      const at = s.active + 1;
+      histories.clear();
+      set({
+        slides: insertSlide(merged, at, slide),
+        active: at,
+        doc: slide,
+        past: [],
+        future: [],
+        ui: { ...s.ui, selectedId: null, selectedSegment: null, selectedClip: null, tool: "select" },
+        playback: { time: 0, playing: false },
+        revision: s.revision + 1,
+      });
+      return true;
+    },
+
+    removeSlide: (index) => {
+      const s = get();
+      if (s.slides.length <= 1 || index < 0 || index >= s.slides.length) return;
+      lastKey = undefined;
+      const merged = removeSlideAt(projectSlides(s), index);
+      const active = activeAfterRemove(s.active, index, merged.length);
+      histories.clear();
+      set({
+        slides: merged,
+        active,
+        doc: merged[active],
+        past: [],
+        future: [],
+        ui: { ...s.ui, selectedId: null, selectedSegment: null, selectedClip: null },
+        playback: { time: 0, playing: false },
+        revision: s.revision + 1,
+      });
+    },
+
+    moveSlideBy: (index, direction) => {
+      const s = get();
+      const to = index + direction;
+      if (to < 0 || to >= s.slides.length) return;
+      lastKey = undefined;
+      const merged = moveSlideTo(projectSlides(s), index, to);
+      const active = activeAfterMove(s.active, index, to);
+      histories.clear();
+      set({ slides: merged, active, doc: merged[active], past: [], future: [], revision: s.revision + 1 });
+    },
+
+    setContinuous: (on) => set((s) => ({ continuous: on, revision: s.revision + 1 })),
+
+    setCanvas: (canvas, coalesceKey) => {
+      // The active slide goes through update (so it is undoable); the others follow silently.
+      get().update((d) => void (d.canvas = { ...canvas }), coalesceKey);
+      set((st) => ({ slides: withCanvas(st.slides, canvas), revision: st.revision + 1 }));
+    },
+
+    updateAllSlides: (recipe) => {
+      get().update(recipe);
+      set((st) => ({
+        slides: st.slides.map((d, i) => {
+          if (i === st.active) return d;
+          const next = structuredClone(d);
+          recipe(next);
+          return next;
+        }),
+        revision: st.revision + 1,
+      }));
+    },
+
+    replaceSlides: (slides, active = 0) => {
+      const s = get();
+      lastKey = undefined;
+      const i = Math.max(0, Math.min(active, slides.length - 1));
+      histories.clear();
+      set({ slides, active: i, doc: slides[i], past: [], future: [], ui: { ...s.ui, selectedId: null, selectedSegment: null, selectedClip: null, tool: "select" }, playback: { time: 0, playing: false }, revision: s.revision + 1 });
     },
   }));
 }
@@ -343,9 +506,27 @@ export function screenImages(state: Pick<EditorState, "doc" | "images">): (Loade
 }
 
 /** Everything the renderer needs besides the document: the screenshot and the images used by image layers. */
-export function renderInputFor(state: Pick<EditorState, "doc" | "images">): { screens: (RenderableImage | undefined)[]; images: Record<string, RenderableImage> } {
+export function renderInputFor(state: Pick<EditorState, "doc" | "images"> & Partial<Pick<EditorState, "slides" | "active" | "continuous">>): {
+  screens: (RenderableImage | undefined)[];
+  images: Record<string, RenderableImage>;
+  span?: { index: number; count: number };
+} {
   return {
     screens: screenImages(state).map((i) => i?.source),
     images: Object.fromEntries(Object.values(state.images).map((i) => [i.id, i.source])),
+    span: spanFor(state.active ?? 0, state.slides?.length ?? 1, state.continuous ?? false),
+  };
+}
+
+/** What is needed to draw slide `index` of the project, which may not be the one being edited. */
+export function renderInputForSlide(
+  state: Pick<EditorState, "images" | "slides" | "continuous">,
+  slide: DesignDocument,
+  index: number,
+): { screens: (RenderableImage | undefined)[]; images: Record<string, RenderableImage>; span?: { index: number; count: number } } {
+  return {
+    screens: slide.media.map((m) => state.images[m.assetId]?.source),
+    images: Object.fromEntries(Object.values(state.images).map((i) => [i.id, i.source])),
+    span: spanFor(index, state.slides.length, state.continuous),
   };
 }
