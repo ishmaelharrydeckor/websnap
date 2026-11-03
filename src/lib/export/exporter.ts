@@ -2,6 +2,7 @@ import type { SizePreset } from "../assets/sizes";
 import type { DesignDocument } from "../document/types";
 import { renderDocument, type RenderInput } from "../render/render";
 import { scaleDocumentToSize } from "./sizes";
+import { createPdf } from "./pdf";
 import { createZip } from "./zip";
 
 export type ExportFormat = "png" | "jpeg" | "webp";
@@ -83,5 +84,40 @@ export async function exportAllSizes(doc: DesignDocument, input: RenderInput, pr
     // Let the page paint progress between sizes.
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
+  return new Blob([createZip(entries) as BlobPart], { type: "application/zip" });
+}
+
+export interface ExportSlidesOptions {
+  kind: "zip" | "pdf";
+  /** Image format for the ZIP. A PDF always embeds JPEG. */
+  format: ExportFormat;
+  scale: number;
+  onProgress?: (done: number, total: number) => void;
+}
+
+/** Renders every slide and bundles them as a ZIP of numbered images, or as a multi-page PDF. */
+export async function exportSlides(
+  slides: DesignDocument[],
+  inputFor: (slide: DesignDocument, index: number) => RenderInput,
+  opts: ExportSlidesOptions,
+): Promise<Blob> {
+  const format: ExportFormat = opts.kind === "pdf" ? "jpeg" : opts.format;
+  const ext = formatInfo(format).ext;
+  const files: { data: Uint8Array; width: number; height: number }[] = [];
+  for (const [i, slide] of slides.entries()) {
+    const blob = await exportBlob(slide, inputFor(slide, i), { format, scale: opts.scale, quality: opts.kind === "pdf" ? 0.95 : undefined });
+    files.push({
+      data: new Uint8Array(await blob.arrayBuffer()),
+      width: Math.round(slide.canvas.width * opts.scale),
+      height: Math.round(slide.canvas.height * opts.scale),
+    });
+    opts.onProgress?.(i + 1, slides.length);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  if (opts.kind === "pdf") {
+    return new Blob([createPdf(files.map((f) => ({ jpeg: f.data, width: f.width, height: f.height }))) as BlobPart], { type: "application/pdf" });
+  }
+  const pad = Math.max(2, String(slides.length).length);
+  const entries = files.map((f, i) => ({ name: `slide-${String(i + 1).padStart(pad, "0")}.${ext}`, data: f.data }));
   return new Blob([createZip(entries) as BlobPart], { type: "application/zip" });
 }

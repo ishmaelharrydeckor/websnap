@@ -13,7 +13,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!cfg.enabled || !isValidId(id)) return json({ error: "Not found" }, 404);
   const [record, doc] = [share.service.get(id), await share.service.readDoc(id)];
   if (!record || !doc) return json({ error: "Not found" }, 404);
-  return json({ id, createdAt: record.createdAt, expiresAt: record.expiresAt, doc, assets: record.assets });
+  // A project is stored as {slides, active, continuous}; `doc` stays its first slide so older clients still open something.
+  const project = "slides" in doc ? doc : undefined;
+  return json({ id, createdAt: record.createdAt, expiresAt: record.expiresAt, doc: project ? project.slides[0] : doc, project, assets: record.assets });
 }
 
 /** Removes a share. The delete token comes from when it was created. */

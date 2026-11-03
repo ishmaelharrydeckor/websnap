@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { exportBlob } from "@/lib/export/exporter";
-import { assetsFor, buildUpload, deleteShare, fetchShareStatus, loadMyShares, rememberShare, saveMyShares, uploadShare, type MyShare, type ShareStatus } from "@/lib/share/client";
-import { editorStore, renderInputFor } from "./store";
+import { assetsForProject, buildUpload, deleteShare, fetchShareStatus, loadMyShares, rememberShare, saveMyShares, uploadShare, type MyShare, type ShareStatus } from "@/lib/share/client";
+import { editorStore, projectSlides, renderInputForSlide } from "./store";
 import { useModalFocus } from "./useModalFocus";
 
 const mb = (n: number) => (n / 1048576 < 0.1 ? "under 0.1" : (n / 1048576).toFixed(1));
@@ -34,7 +34,8 @@ export function ShareDialog({ onClose, onDone }: { onClose: () => void; onDone: 
   }, [status]);
 
   const state = editorStore.getState();
-  const files = assetsFor(state.doc, { ...Object.fromEntries(Object.values(state.images).map((i) => [i.id, i.blob])), ...Object.fromEntries(Object.values(state.audios).map((a) => [a.id, a.blob])) });
+  const slides = projectSlides(state);
+  const files = assetsForProject(slides, { ...Object.fromEntries(Object.values(state.images).map((i) => [i.id, i.blob])), ...Object.fromEntries(Object.values(state.audios).map((a) => [a.id, a.blob])) });
   const filesBytes = files.reduce((n, f) => n + f.blob.size, 0);
   const link = created ? `${location.origin}/s/${created.id}` : "";
 
@@ -43,8 +44,10 @@ export function ShareDialog({ onClose, onDone }: { onClose: () => void; onDone: 
     setError(null);
     try {
       const s = editorStore.getState();
-      const preview = await exportBlob(s.doc, renderInputFor(s), { format: "png", scale: 1, time: s.playback.time });
-      const result = await uploadShare(buildUpload(s.doc, preview, files), token || undefined);
+      const all = projectSlides(s);
+      // The preview is the first slide, which is what a link shows.
+      const preview = await exportBlob(all[0], renderInputForSlide(s, all[0], 0), { format: "png", scale: 1, time: s.active === 0 ? s.playback.time : 0 });
+      const result = await uploadShare(buildUpload({ slides: all, active: s.active, continuous: s.continuous }, preview, files), token || undefined);
       const list = rememberShare(result);
       setMine(list);
       setCreated(list[0]);

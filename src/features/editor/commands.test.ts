@@ -12,6 +12,8 @@ const ctx = () => ({
   copy: vi.fn(),
   exportAll: vi.fn(),
   exportVideo: vi.fn(),
+  newSet: vi.fn(),
+  exportSlides: vi.fn(),
   setFormat: vi.fn(),
   setScale: vi.fn(),
   shortcuts: vi.fn(),

@@ -51,6 +51,32 @@ describe("validateUpload", () => {
   });
 });
 
+describe("validateUpload with a project", () => {
+  const slide = (id?: string) => JSON.parse(docWith(...(id ? [id] : [])));
+  const project = (slides: unknown[], extra: object = {}) => JSON.stringify({ version: 1, slides, active: 1, continuous: true, ...extra });
+  it("accepts several slides and counts files from every slide", () => {
+    const r = validateUpload(project([slide("img-one"), slide("img-two")]), png, [{ name: "img-two", type: "image/png", size: 200 }], cfg);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.project?.slides).toHaveLength(2);
+      expect(r.project?.active).toBe(1);
+      expect(r.project?.continuous).toBe(true);
+      expect(r.doc).toBe(r.project?.slides[0]);
+    }
+  });
+  it("rejects a file that no slide uses", () => {
+    const r = validateUpload(project([slide(), slide()]), png, [{ name: "img-one", type: "image/png", size: 10 }], cfg);
+    expect(r.ok).toBe(false);
+  });
+  it("rejects empty, too many and malformed slides, and clamps active", () => {
+    expect(validateUpload(project([]), png, [], cfg).ok).toBe(false);
+    expect(validateUpload(project(Array.from({ length: 31 }, () => slide())), png, [], cfg).ok).toBe(false);
+    expect(validateUpload(project([slide(), { version: 2 }]), png, [], cfg).ok).toBe(false);
+    const r = validateUpload(project([slide(), slide()], { active: 99 }), png, [], cfg);
+    expect(r.ok && r.project?.active).toBe(1);
+  });
+});
+
 describe("RateLimiter", () => {
   it("blocks past the limit and recovers after the window", () => {
     const rl = new RateLimiter(2, 1000);
@@ -108,6 +134,12 @@ describe("ShareService", () => {
     expect((await svc.readAsset(id, "aaaa"))?.bytes).toEqual(new Uint8Array([1, 2, 3]));
     expect(await svc.readAsset(id, "nope")).toBeUndefined();
     expect(svc.get(id)?.bytes).toBe(5);
+  });
+  it("stores and returns a whole project", async () => {
+    const slides = [createDefaultDocument(), createDefaultDocument()];
+    const { id } = await svc.create({ ...share(), project: { version: 1, slides, active: 1, continuous: false } });
+    const read = await svc.readDoc(id);
+    expect(read && "slides" in read ? read.slides : []).toHaveLength(2);
   });
   it("gives every share a different unguessable id", async () => {
     const ids = new Set((await Promise.all([1, 2, 3, 4, 5].map(() => svc.create(share())))).map((r) => r.id));

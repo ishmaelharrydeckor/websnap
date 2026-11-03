@@ -62,6 +62,7 @@ export async function POST(request: Request) {
   try {
     const { id, deleteToken } = await share.service.create({
       doc: checked.doc,
+      project: checked.project,
       preview: { bytes: new Uint8Array(await (preview as File).arrayBuffer()), type: (preview as File).type },
       assets: await Promise.all(assetFiles.map(async (a) => ({ id: a.id, bytes: new Uint8Array(await a.file.arrayBuffer()), type: a.file.type }))),
     });

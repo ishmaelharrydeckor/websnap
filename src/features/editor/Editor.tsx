@@ -9,6 +9,8 @@ import { removeSegment, splitAt } from "@/lib/timeline/segments";
 import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
 import { CommandPalette } from "./CommandPalette";
 import { ExportAllDialog } from "./ExportAllDialog";
+import { NewSetDialog } from "./NewSetDialog";
+import { ExportSlidesDialog } from "./ExportSlidesDialog";
 import { ExportVideoDialog } from "./ExportVideoDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { icons } from "./icons";
@@ -78,6 +80,8 @@ export function Editor() {
   const [message, setMessage] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [exportAllOpen, setExportAllOpen] = useState(false);
+  const [exportSlidesOpen, setExportSlidesOpen] = useState(false);
+  const [newSetOpen, setNewSetOpen] = useState(false);
   const [exportVideoOpen, setExportVideoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [urlOpen, setUrlOpen] = useState(false);
@@ -260,6 +264,8 @@ export function Editor() {
             copy: () => void onCopy(),
             exportAll: () => setExportAllOpen(true),
             exportVideo: () => setExportVideoOpen(true),
+            newSet: () => setNewSetOpen(true),
+            exportSlides: () => setExportSlidesOpen(true),
             setFormat,
             setScale,
             shortcuts: () => setShortcutsOpen(true),
@@ -490,7 +496,7 @@ export function Editor() {
           </div>
         </main>
       </div>
-      <SlideStrip onNewSet={() => notify("New set dialog coming next")} onNotify={notify} />
+      <SlideStrip onNewSet={() => setNewSetOpen(true)} onExport={() => setExportSlidesOpen(true)} onNotify={notify} />
       {timelineOpen && <Timeline />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       {resetOpen && (
@@ -509,6 +515,8 @@ export function Editor() {
       {urlOpen && <UrlCaptureDialog onClose={() => setUrlOpen(false)} onCapture={(png) => void importBlob(png)} />}
       {shareOpen && <ShareDialog onClose={() => setShareOpen(false)} onDone={notify} />}
       {exportVideoOpen && <ExportVideoDialog onClose={() => setExportVideoOpen(false)} onDone={notify} />}
+      {newSetOpen && <NewSetDialog onClose={() => setNewSetOpen(false)} onDone={notify} />}
+      {exportSlidesOpen && <ExportSlidesDialog onClose={() => setExportSlidesOpen(false)} onDone={notify} />}
       {exportAllOpen && <ExportAllDialog format={format} scale={scale} onClose={() => setExportAllOpen(false)} onDone={notify} />}
       {commands && <CommandPalette commands={commands} onClose={() => setCommands(null)} />}
     </div>

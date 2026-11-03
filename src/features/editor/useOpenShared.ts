@@ -20,10 +20,12 @@ export function useOpenShared(notify: (message: string) => void) {
         const existing = await loadCurrentDesign().catch(() => undefined);
         const hasWork = existing && existing.slides.some((d) => d.media.length > 0 || d.layers.length > 0);
         if (hasWork && !window.confirm("Open the shared design? It will replace the design saved in this browser.")) return;
-        const { images, audios } = await loadMediaFor(opened.doc.media, opened.blobs);
+        const slides = opened.project?.slides ?? [opened.doc];
+        const { images, audios } = await loadMediaFor(slides.flatMap((d) => d.media), opened.blobs);
         if (cancelled) return;
-        editorStore.getState().load(opened.doc, images, audios);
-        if (opened.doc.media.some((m) => m.kind === "video")) editorStore.getState().setTimelineOpen(true);
+        if (opened.project) editorStore.getState().loadProject({ slides, active: opened.project.active, continuous: opened.project.continuous }, images, audios);
+        else editorStore.getState().load(opened.doc, images, audios);
+        if (slides.some((d) => d.media.some((m) => m.kind === "video"))) editorStore.getState().setTimelineOpen(true);
         notify("Opened the shared design");
       } catch (e) {
         notify(e instanceof Error ? e.message : "Couldn't open the shared design.");

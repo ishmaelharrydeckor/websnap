@@ -41,9 +41,9 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
   const loaded = useEditor((s) => s.images);
   const time = useEditor((s) => s.playback.time);
   const fast = useEditor((s) => s.ui.fastPreview);
-  const span = useEditor((s) => spanFor(s.active, s.slides.length, s.continuous));
-  const spanIndex = span?.index;
-  const spanCount = span?.count;
+  // Select primitives: a selector that returns a new object every time re-renders forever.
+  const spanIndex = useEditor((s) => spanFor(s.active, s.slides.length, s.continuous)?.index);
+  const spanCount = useEditor((s) => spanFor(s.active, s.slides.length, s.continuous)?.count);
   // A half-size preview draws a quarter of the pixels; the overlay and all the geometry still work in design coordinates.
   const previewScale = fast ? 0.5 : 1;
   // Bumped when a video finishes seeking or decoding a frame, so a paused preview redraws.

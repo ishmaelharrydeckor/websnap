@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { DesignDocument } from "@/lib/document/types";
+import type { ProjectPayload } from "./validate";
 import { createBlobStore, type BlobStore } from "./blobstore";
 import type { ShareConfig } from "./config";
 
@@ -17,6 +18,8 @@ export interface ShareRecord {
 
 export interface NewShare {
   doc: DesignDocument;
+  /** When set, the whole project is stored instead of the single document. */
+  project?: ProjectPayload;
   preview: { bytes: Uint8Array; type: string };
   assets: { id: string; bytes: Uint8Array; type: string }[];
 }
@@ -52,7 +55,7 @@ export class ShareService {
     const expiresAt = this.cfg.expireDays > 0 ? createdAt + this.cfg.expireDays * 86400_000 : null;
     const enc = new TextEncoder();
     try {
-      await this.store.put(`${id}/doc.json`, enc.encode(JSON.stringify(share.doc)), "application/json");
+      await this.store.put(`${id}/doc.json`, enc.encode(JSON.stringify(share.project ?? share.doc)), "application/json");
       await this.store.put(`${id}/preview`, share.preview.bytes, share.preview.type);
       for (const a of share.assets) await this.store.put(`${id}/a/${a.id}`, a.bytes, a.type);
     } catch (e) {
@@ -75,10 +78,10 @@ export class ShareService {
     return { id: row.id, createdAt: row.created_at, expiresAt: row.expires_at, bytes: row.bytes, assets: JSON.parse(row.assets) };
   }
 
-  async readDoc(id: string): Promise<DesignDocument | undefined> {
+  async readDoc(id: string): Promise<DesignDocument | ProjectPayload | undefined> {
     if (!this.get(id)) return undefined;
     const blob = await this.store.get(`${id}/doc.json`);
-    return blob ? (JSON.parse(new TextDecoder().decode(blob.bytes)) as DesignDocument) : undefined;
+    return blob ? (JSON.parse(new TextDecoder().decode(blob.bytes)) as DesignDocument | ProjectPayload) : undefined;
   }
 
   async readPreview(id: string) {

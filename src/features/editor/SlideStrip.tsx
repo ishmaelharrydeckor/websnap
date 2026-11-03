@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MAX_SLIDES } from "@/lib/project/project";
+import { templateFromDocument } from "@/lib/assets/template-io";
+import { MAX_SLIDES, matchLook } from "@/lib/project/project";
 import { renderDocument } from "@/lib/render/render";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { editorStore, projectSlides, renderInputForSlide, useEditor } from "./store";
@@ -36,7 +37,7 @@ function Thumb({ index }: { index: number }) {
 }
 
 /** The row of slides in a project: pick one, add, reorder, delete, and turn on a seamless background. */
-export function SlideStrip({ onNewSet, onNotify }: { onNewSet: () => void; onNotify: (m: string) => void }) {
+export function SlideStrip({ onNewSet, onExport, onNotify }: { onNewSet: () => void; onExport: () => void; onNotify: (m: string) => void }) {
   const count = useEditor((s) => s.slides.length);
   const active = useEditor((s) => s.active);
   const continuous = useEditor((s) => s.continuous);
@@ -80,12 +81,28 @@ export function SlideStrip({ onNewSet, onNotify }: { onNewSet: () => void; onNot
         <button type="button" className={btn} disabled={count <= 1} onClick={() => setConfirmDelete(true)}>
           Delete
         </button>
+        <button
+          type="button"
+          className={btn}
+          disabled={count <= 1}
+          title="Give every other slide this slide's look. Each keeps its own pictures and text."
+          onClick={() => {
+            const state = editorStore.getState();
+            state.replaceSlides(matchLook(projectSlides(state), state.active, (d) => templateFromDocument(d, "This look")), state.active);
+            onNotify("Matched all slides to this look");
+          }}
+        >
+          Match look
+        </button>
         <label className="flex items-center gap-1 text-xs text-neutral-300">
           <input type="checkbox" checked={continuous} onChange={(e) => editorStore.getState().setContinuous(e.target.checked)} />
           Seamless background
         </label>
         <button type="button" className={btn} onClick={onNewSet}>
           New set…
+        </button>
+        <button type="button" className={btn} onClick={onExport}>
+          Export slides…
         </button>
       </div>
       {confirmDelete && (

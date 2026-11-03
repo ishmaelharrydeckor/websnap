@@ -33,6 +33,8 @@ export interface CommandContext {
   copy: () => void;
   exportAll: () => void;
   exportVideo: () => void;
+  newSet: () => void;
+  exportSlides: () => void;
   setFormat: (f: ExportFormat) => void;
   setScale: (s: number) => void;
   shortcuts: () => void;
@@ -94,6 +96,13 @@ export function buildCommands(ctx: CommandContext): Command[] {
     { id: "add-image", group: "File", label: "Add image layer", keywords: "logo photo insert", run: ctx.addImage },
     { id: "download", group: "File", label: "Download image", keywords: "export save", run: ctx.download },
     { id: "copy", group: "File", label: "Copy image to clipboard", keywords: "export", run: ctx.copy },
+    { id: "new-set", group: "Slides", label: "New set (carousel or store gallery)", keywords: "slides app store screenshots product hunt multiple", run: ctx.newSet },
+    { id: "export-slides", group: "File", label: "Export slides (ZIP or PDF)", keywords: "carousel gallery pdf zip all slides", run: ctx.exportSlides },
+    { id: "slide-add", group: "Slides", label: "Duplicate slide", keywords: "add copy", run: () => void store().addSlide("duplicate") },
+    { id: "slide-add-blank", group: "Slides", label: "Add blank slide", run: () => void store().addSlide("blank") },
+    { id: "slide-next", group: "Slides", label: "Next slide", run: () => store().selectSlide(Math.min(store().active + 1, store().slides.length - 1)) },
+    { id: "slide-prev", group: "Slides", label: "Previous slide", run: () => store().selectSlide(Math.max(store().active - 1, 0)) },
+    { id: "slide-seamless", group: "Slides", label: "Toggle seamless background across slides", keywords: "continuous panorama", run: () => store().setContinuous(!store().continuous) },
     { id: "export-video", group: "File", label: "Export video or GIF", keywords: "mp4 webm gif animation render", run: ctx.exportVideo },
     { id: "export-all", group: "File", label: "Export all sizes (ZIP)", keywords: "download batch multiple social presets", run: ctx.exportAll },
     { id: "undo", group: "Edit", label: "Undo", hint: "Ctrl/⌘ Z", run: () => store().undo() },
@@ -165,9 +174,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
       label: `Canvas size: ${p.label} (${p.width}×${p.height})`,
       keywords: "resize dimensions",
       run: () =>
-        store().update((d) => {
-          d.canvas = { sizeId: p.id, width: p.width, height: p.height };
-        }),
+        store().setCanvas({ sizeId: p.id, width: p.width, height: p.height }),
     });
   }
 

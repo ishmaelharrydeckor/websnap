@@ -26,9 +26,23 @@ export function assetsFor(doc: DesignDocument, blobs: Record<string, Blob | unde
   return collectAssetIds(doc).flatMap((id) => (blobs[id] ? [{ id, blob: blobs[id]! }] : []));
 }
 
-export function buildUpload(doc: DesignDocument, preview: Blob, assets: { id: string; blob: Blob }[]): FormData {
+export interface SharedProject {
+  slides: DesignDocument[];
+  active: number;
+  continuous: boolean;
+}
+
+/** Files a whole project needs. */
+export function assetsForProject(slides: DesignDocument[], blobs: Record<string, Blob | undefined>): { id: string; blob: Blob }[] {
+  const ids = [...new Set(slides.flatMap((d) => collectAssetIds(d)))];
+  return ids.flatMap((id) => (blobs[id] ? [{ id, blob: blobs[id]! }] : []));
+}
+
+/** A one-slide project uploads as a plain design, so links stay the same as before slides existed. */
+export function buildUpload(doc: DesignDocument | SharedProject, preview: Blob, assets: { id: string; blob: Blob }[]): FormData {
   const form = new FormData();
-  form.set("doc", JSON.stringify(doc));
+  const body = "slides" in doc ? (doc.slides.length === 1 ? doc.slides[0] : { version: 1, ...doc }) : doc;
+  form.set("doc", JSON.stringify(body));
   form.set("preview", preview, "preview");
   for (const a of assets) form.set(`asset:${a.id}`, a.blob, a.id);
   return form;
@@ -52,6 +66,8 @@ export async function deleteShare(id: string, deleteToken: string): Promise<void
 
 export interface OpenedShare {
   doc: DesignDocument;
+  /** Present when the link holds several slides. */
+  project?: SharedProject;
   blobs: Record<string, Blob>;
 }
 
@@ -59,7 +75,7 @@ export interface OpenedShare {
 export async function openShare(id: string): Promise<OpenedShare> {
   const res = await fetch(`/api/share/${id}`, { cache: "no-store" });
   if (!res.ok) throw new Error(res.status === 404 ? "That link isn't available any more." : "Couldn't open the shared design.");
-  const body = (await res.json()) as { doc: DesignDocument; assets: Record<string, string> };
+  const body = (await res.json()) as { doc: DesignDocument; project?: SharedProject; assets: Record<string, string> };
   const entries = await Promise.all(
     Object.keys(body.assets).map(async (assetId) => {
       const file = await fetch(`/api/share/${id}/a/${assetId}`);
@@ -67,7 +83,7 @@ export async function openShare(id: string): Promise<OpenedShare> {
       return [assetId, await file.blob()] as const;
     }),
   );
-  return { doc: body.doc, blobs: Object.fromEntries(entries) };
+  return { doc: body.doc, project: body.project, blobs: Object.fromEntries(entries) };
 }
 
 const KEY = "websnap:shares";

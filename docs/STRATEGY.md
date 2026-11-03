@@ -23,7 +23,7 @@ get better designs into it, and what to build next. It is opinion, written to be
 | **Screenshot a URL, then mock it up** | Paste an address, get a polished picture in one step. | Done (self-hosted server feature) |
 | **Real mixed-device compositions** | Phone in front of a laptop, iMac with a phone, browser with an app. These are how designers actually show a product. | Done (first version) |
 | **Responsive showcase from one URL** | Capture a site at desktop and phone width and drop both into a "phone in front" template automatically. Nobody makes this a one-click job. | Next |
-| **Carousels and store galleries** | LinkedIn carousels, App Store and Play Store sets, Product Hunt galleries: several canvases in one project, one consistent style, one ZIP or PDF. Single-image tools don't do this. | Next |
+| **Carousels and store galleries** | LinkedIn carousels, App Store and Play Store sets, Product Hunt galleries: several canvases in one project, one consistent style, one ZIP or PDF. Single-image tools don't do this. | **Built** (see below) |
 | **Brand-aware templates** | Pick a template, press one button, get it in your brand colours, logo and font. The brand kit exists; make templates respond to it. | Partly done |
 | **Scroll walkthrough video from a URL** | A headless browser records an automatic scroll of a page, and the result becomes a device mockup video. | Later |
 
@@ -58,3 +58,14 @@ Quantity is not the problem; taste is. The honest route:
   never the artwork, branding or code.
 - **Keep the editor fast.** Software 3D and pixel effects cost time per frame; keep *Fast preview* and measure.
 - **Say what is untested.** The README and PLAN list the known gaps; keep that habit.
+
+## Carousels and store galleries: what exists
+
+- A project is a list of slides that share one canvas size. The slide strip under the canvas adds (duplicate or blank), reorders, deletes, and has **Match look** (copies one slide's look to the rest, keeping each slide's pictures and text).
+- **New set** builds N slides of a store or social size with a template and one headline per line.
+- **Seamless background** makes the background run across all slides, for panoramic carousels.
+- **Export slides** gives a ZIP (`slide-01.png`…) or a PDF, at 1x or 2x. The PDF is written by `src/lib/export/pdf.ts` with no dependency.
+- Projects are saved in the browser and can be shared as one link (the link preview is slide 1).
+- Store sizes in `src/lib/assets/sizes.ts` are from memory. Check each store's current requirements before uploading.
+
+Known limits: adding, removing, moving and replacing slides can't be undone (undo history is per slide and resets on those); the phone in the phone-in-front layouts is always an iPhone; `e2e/slides.mjs` covers the flow in Chromium only.
