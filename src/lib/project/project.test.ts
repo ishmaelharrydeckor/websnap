@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultDocument } from "../document/defaults";
 import type { DesignDocument } from "../document/types";
-import { TEMPLATES } from "../assets/templates";
+import { TEMPLATES, type Template } from "../assets/templates";
 import { templateFromDocument } from "../assets/template-io";
 import { SIZE_PRESETS } from "../assets/sizes";
 import { activeAfterMove, activeAfterRemove, blankLike, buildSet, insertSlide, matchLook, MAX_SLIDES, mergeSlides, moveSlide, removeSlide, spanFor, withCanvas } from "./project";
@@ -138,5 +138,40 @@ describe("matchLook", () => {
     expect(out[1].media).toHaveLength(1);
     expect(out[1].headline.text).toBe("Second headline");
     expect(b.frame.style).not.toBe("imac"); // the input is untouched
+  });
+});
+
+describe("fitToCanvas via buildSet", () => {
+  const tabletTpl = (position: "right" | "top"): Template => ({
+    id: "t", name: "t", background: { kind: "solid", color: "#fff" }, frame: { style: "tablet", dark: true }, shot: { padding: 0.07, radius: 14, shadow: 0, shadowMode: "spread" },
+    headline: { show: true, position, align: "left", size: 60, color: "#000" },
+  });
+  const tall = { id: "tall", label: "tall", width: 1000, height: 1600 };
+  const wide = { id: "wide", label: "wide", width: 1600, height: 1000 };
+  it("stands a wide-by-default tablet upright on a tall canvas and moves a side headline above it", () => {
+    const [s] = buildSet(doc("x"), { count: 1, size: tall, template: tabletTpl("right"), headlines: [], keepFirst: false });
+    expect(s.frame.landscape).toBe(true);
+    expect(s.headline.position).toBe("top");
+    expect(s.headline.align).toBe("center");
+  });
+  it("leaves a tablet as drawn on a wide canvas", () => {
+    const [s] = buildSet(doc("x"), { count: 1, size: wide, template: tabletTpl("right"), headlines: [], keepFirst: false });
+    expect(s.frame.landscape).toBe(false);
+    expect(s.headline.position).toBe("right");
+  });
+  it("turns a phone on its side on a wide canvas but not on a tall one", () => {
+    const phone: Template = { ...tabletTpl("top"), frame: { style: "iphone", dark: false } };
+    expect(buildSet(doc("x"), { count: 1, size: wide, template: phone, headlines: [], keepFirst: false })[0].frame.landscape).toBe(true);
+    expect(buildSet(doc("x"), { count: 1, size: tall, template: phone, headlines: [], keepFirst: false })[0].frame.landscape).toBe(false);
+  });
+  it("does not touch a laptop frame", () => {
+    const laptop: Template = { ...tabletTpl("top"), frame: { style: "macbook", dark: false } };
+    expect(buildSet(doc("x"), { count: 1, size: tall, template: laptop, headlines: [], keepFirst: false })[0].frame.landscape).toBeFalsy();
+  });
+  it("grows the headline on a large canvas and leaves it on a small one", () => {
+    const big = { id: "b", label: "b", width: 2064, height: 2752 };
+    const small = { id: "s", label: "s", width: 800, height: 500 };
+    expect(buildSet(doc("x"), { count: 1, size: big, template: tabletTpl("top"), headlines: [], keepFirst: false })[0].headline.size).toBeGreaterThan(100);
+    expect(buildSet(doc("x"), { count: 1, size: small, template: tabletTpl("top"), headlines: [], keepFirst: false })[0].headline.size).toBe(60);
   });
 });

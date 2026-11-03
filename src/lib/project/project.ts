@@ -2,6 +2,8 @@ import { createDefaultDocument } from "../document/defaults";
 import type { DesignDocument } from "../document/types";
 import { applyTemplate, type Template } from "../assets/templates";
 import type { SizePreset } from "../assets/sizes";
+import { DEVICES, ROTATABLE } from "../assets/devices";
+import type { DeviceFrameStyle } from "../document/types";
 
 /** Most slides in one project. Carousels rarely pass 10; store galleries stop at 10; this leaves room. */
 export const MAX_SLIDES = 30;
@@ -66,6 +68,27 @@ export function withCanvas(slides: DesignDocument[], canvas: DesignDocument["can
   return slides.map((d) => ({ ...d, canvas: { ...canvas } }));
 }
 
+/**
+ * A set is made for one canvas, so make the look fit it: a phone or tablet is turned to match the canvas's shape
+ * (tablets are drawn wide by default, so they need turning on a tall canvas), and a side headline column moves
+ * above the device on a tall canvas, where a column would squeeze it.
+ */
+export function fitToCanvas(doc: DesignDocument) {
+  const { width, height } = doc.canvas;
+  const tall = height > width * 1.05;
+  const style = doc.frame.style;
+  if ((ROTATABLE as string[]).includes(style)) {
+    const naturallyWide = DEVICES[style as DeviceFrameStyle].aspect > 1;
+    doc.frame.landscape = naturallyWide === tall;
+  }
+  // Templates are sized for a 1600×900 canvas; on a bigger one the headline would look small.
+  doc.headline.size = Math.round(doc.headline.size * Math.max(1, Math.sqrt(width * height) / 1200));
+  if (tall && (doc.headline.position === "left" || doc.headline.position === "right")) {
+    doc.headline.position = "top";
+    doc.headline.align = "center";
+  }
+}
+
 export interface SetOptions {
   count: number;
   size: SizePreset;
@@ -91,7 +114,10 @@ export function buildSet(base: DesignDocument, opts: SetOptions): DesignDocument
       slide.headline.show = true;
     }
     slide.canvas = { sizeId: opts.size.id, width: opts.size.width, height: opts.size.height };
-    if (opts.template) applyTemplate(slide, opts.template);
+    if (opts.template) {
+      applyTemplate(slide, opts.template);
+      fitToCanvas(slide);
+    }
     // A set with captions needs the headline on, unless the chosen template deliberately has none.
     else if (!keep) slide.headline.show = true;
     slides.push(slide);
