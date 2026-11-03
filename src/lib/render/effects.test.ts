@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyEffects, applyGlitch, applyNoise, applyVhs, hasEffects, mulberry32, NO_EFFECTS } from "./effects";
+import { applyEffects, applyGlitch, applyLight, applyNoise, applyVhs, hasEffects, mulberry32, NO_EFFECTS } from "./effects";
 
 /** A w×h picture split into a red left half and a blue right half. */
 function split(w: number, h: number) {
@@ -29,7 +29,7 @@ describe("effects", () => {
   it("are repeatable: the same time gives the same picture, a later time a different one", () => {
     const run = (t: number) => {
       const d = split(64, 32);
-      applyEffects(d, 64, 32, { noise: 0.5, vhs: 0.5, glitch: 0.8 }, t);
+      applyEffects(d, 64, 32, { noise: 0.5, vhs: 0.5, glitch: 0.8, light: 0.6 }, t);
       return d;
     };
     expect(same(run(0.5), run(0.5))).toBe(true);
@@ -38,7 +38,7 @@ describe("effects", () => {
 
   it("never touch alpha and stay in range", () => {
     const d = split(48, 24);
-    applyEffects(d, 48, 24, { noise: 1, vhs: 1, glitch: 1 }, 2.2);
+    applyEffects(d, 48, 24, { noise: 1, vhs: 1, glitch: 1, light: 1 }, 2.2);
     for (let i = 3; i < d.length; i += 4) expect(d[i]).toBe(255);
   });
 
@@ -87,5 +87,27 @@ describe("effects", () => {
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThan(1);
     }
+  });
+
+  it("window light shades some bands and leaves others, never brightening or touching alpha", () => {
+    const w = 200, h = 100;
+    const d = flat(w, h, 200);
+    applyLight(d, w, h, 1, 0);
+    const values = new Set<number>();
+    for (let i = 0; i < d.length; i += 4) {
+      expect(d[i]).toBeLessThanOrEqual(200);
+      expect(d[i + 3]).toBe(255);
+      values.add(d[i]);
+    }
+    expect(Math.min(...values)).toBeLessThan(120); // deep shade
+    expect(Math.max(...values)).toBe(200); // untouched light
+  });
+  it("window light drifts with time and does nothing at zero", () => {
+    const a = flat(80, 40, 200), b = flat(80, 40, 200), c = flat(80, 40, 200);
+    applyLight(a, 80, 40, 0.8, 0);
+    applyLight(b, 80, 40, 0.8, 5);
+    applyLight(c, 80, 40, 0, 5);
+    expect(same(a, b)).toBe(false);
+    expect(same(c, flat(80, 40, 200))).toBe(true);
   });
 });

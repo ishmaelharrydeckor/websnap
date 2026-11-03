@@ -41,6 +41,9 @@ export function useModalFocus<T extends HTMLElement = HTMLDivElement>() {
       if (e.target instanceof Node && !dialog.contains(e.target)) (focusables()[0] ?? dialog).focus();
     };
 
+    // Move focus into the dialog so Escape and Tab work from the first keypress.
+    if (!dialog.contains(document.activeElement)) (focusables()[0] ?? dialog).focus();
+
     document.addEventListener("keydown", onKeyDown, true);
     document.addEventListener("focusin", onFocusIn);
     return () => {

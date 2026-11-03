@@ -52,7 +52,7 @@ export function CommandPalette({ commands, onClose }: { commands: Command[]; onC
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="w-full max-w-lg overflow-hidden rounded-xl border border-white/10 bg-neutral-900 shadow-2xl outline-none"
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-white/10 bg-ed-raised shadow-2xl outline-none"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >

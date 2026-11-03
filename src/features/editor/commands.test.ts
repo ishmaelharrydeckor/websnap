@@ -14,7 +14,10 @@ const ctx = () => ({
   exportVideo: vi.fn(),
   setFormat: vi.fn(),
   setScale: vi.fn(),
+  shortcuts: vi.fn(),
+  startOver: vi.fn(),
 });
+
 
 describe("command palette", () => {
   it("has unique ids", () => {
@@ -65,5 +68,14 @@ describe("command palette", () => {
     expect(c.download).toHaveBeenCalled();
     expect(c.setTab).toHaveBeenCalledWith("brand");
     expect(c.setFormat).toHaveBeenCalledWith("webp");
+  });
+
+  it("has Start over and Keyboard shortcuts, wired to the shell", () => {
+    const c = ctx();
+    const cmds = buildCommands(c);
+    cmds.find((x) => x.id === "start-over")!.run();
+    cmds.find((x) => x.id === "shortcuts")!.run();
+    expect(c.startOver).toHaveBeenCalledTimes(1);
+    expect(c.shortcuts).toHaveBeenCalledTimes(1);
   });
 });

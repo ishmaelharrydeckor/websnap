@@ -32,8 +32,9 @@ export async function exportBlob(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not supported in this browser");
   ctx.scale(opts.scale, opts.scale);
-  renderDocument(ctx, doc, input, opts.time ?? 0);
   const { mime } = formatInfo(opts.format);
+  // JPEG can't hold transparency (it would come out black), so a see-through design gets a white backing.
+  renderDocument(ctx, doc, mime === "image/jpeg" ? { ...input, backing: "#ffffff" } : input, opts.time ?? 0);
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error(`Could not encode ${mime}`))),

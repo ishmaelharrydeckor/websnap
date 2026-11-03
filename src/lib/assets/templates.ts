@@ -1,4 +1,4 @@
-import type { Background, DesignDocument, FrameStyle, LayoutKind, ShadowMode, Tilt } from "../document/types";
+import type { Background, DesignDocument, FrameStyle, LayoutKind, ShotSettings, Tilt } from "../document/types";
 import { FLAT, TILT_PRESETS } from "../render/perspective";
 import { GRADIENT_PRESETS } from "./backgrounds";
 
@@ -7,7 +7,7 @@ export interface Template {
   name: string;
   background: Background;
   frame: { style: FrameStyle; dark: boolean };
-  shot: { padding: number; radius: number; shadow: number; shadowMode: ShadowMode };
+  shot: Pick<ShotSettings, "padding" | "radius" | "shadow" | "shadowMode">;
   headline: { show: boolean; position: "top" | "bottom"; align: "left" | "center"; size: number; color: string };
   /** Number of screens. Defaults to a single screen. */
   layout?: LayoutKind;
@@ -139,7 +139,7 @@ export function applyTemplate(doc: DesignDocument, template: Template) {
   const t = structuredClone(template);
   doc.background = t.background;
   doc.frame = { ...doc.frame, ...t.frame };
-  doc.shot = t.shot;
+  doc.shot = { ...doc.shot, ...t.shot }; // the style (glass, border...) is the user's own choice and stays
   doc.headline = { ...doc.headline, ...t.headline };
   doc.layout = { kind: t.layout ?? "single" };
   doc.tilt = t.tilt ?? { ...FLAT };

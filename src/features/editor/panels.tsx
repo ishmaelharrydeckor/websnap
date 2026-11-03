@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GRADIENT_PRESETS, SOLID_PRESETS } from "@/lib/assets/backgrounds";
 import { FONTS } from "@/lib/assets/fonts";
 import { SIZE_PRESETS } from "@/lib/assets/sizes";
 import { getWallpaper, WALLPAPERS } from "@/lib/assets/wallpapers";
 import { DEVICE_LIST, isDeviceFrame } from "@/lib/assets/devices";
 import { buildMesh, extractPalette, meshPalette } from "@/lib/assets/magic";
-import type { FrameStyle, LayoutKind, ShadowMode } from "@/lib/document/types";
+import type { FrameStyle, LayoutKind, ShadowMode, ShotStyle } from "@/lib/document/types";
 import { samplePixels } from "@/lib/render/color";
 import { TILT_PRESETS } from "@/lib/render/perspective";
 import { SLOT_COUNT } from "@/lib/render/layout";
+import { blobToLoadedImage } from "@/features/capture/import";
 import type { PanelProps } from "./panelTypes";
 import { Section, Segmented, Slider, TextField, Toggle } from "./controls";
 import { editorStore, primaryImage, useEditor } from "./store";
@@ -18,9 +19,36 @@ import { editorStore, primaryImage, useEditor } from "./store";
 const update = (...args: Parameters<ReturnType<typeof editorStore.getState>["update"]>) =>
   editorStore.getState().update(...args);
 
+function CustomSize() {
+  const width = useEditor((s) => s.doc.canvas.width);
+  const height = useEditor((s) => s.doc.canvas.height);
+  const set = (key: "width" | "height", raw: string) => {
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n) || n < 16) return;
+    update((d) => void (d.canvas = { ...d.canvas, sizeId: "custom", [key]: Math.min(8192, n) }), `canvas-${key}`);
+  };
+  const field = "w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-sm";
+  return (
+    <Section title="Custom size">
+      <div className="grid grid-cols-2 gap-3">
+        <label className="text-xs text-neutral-300">
+          Width
+          <input type="number" min={16} max={8192} step={1} value={width} onChange={(e) => set("width", e.target.value)} className={`mt-1 ${field}`} />
+        </label>
+        <label className="text-xs text-neutral-300">
+          Height
+          <input type="number" min={16} max={8192} step={1} value={height} onChange={(e) => set("height", e.target.value)} className={`mt-1 ${field}`} />
+        </label>
+      </div>
+      <p className="text-xs text-neutral-400">In pixels, 16 to 8192.</p>
+    </Section>
+  );
+}
+
 export function CanvasPanel() {
   const sizeId = useEditor((s) => s.doc.canvas.sizeId);
   return (
+    <>
     <Section title="Canvas size">
       <div className="grid grid-cols-2 gap-2">
         {SIZE_PRESETS.map((p) => (
@@ -45,6 +73,8 @@ export function CanvasPanel() {
         ))}
       </div>
     </Section>
+    <CustomSize />
+    </>
   );
 }
 
@@ -100,6 +130,59 @@ function MagicSection() {
         </button>
       </div>
       {!hasImage && <p className="text-xs text-neutral-400">Add a screenshot first.</p>}
+    </Section>
+  );
+}
+
+function PictureBackgroundSection() {
+  const kind = useEditor((s) => s.doc.background.kind);
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <Section title="Transparent or your own picture">
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          aria-pressed={kind === "transparent"}
+          onClick={() => update((d) => void (d.background = { kind: "transparent" }))}
+          className={`rounded-lg border px-2 py-2 text-xs transition ${kind === "transparent" ? "border-orange-500 bg-orange-700/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"}`}
+        >
+          Transparent
+        </button>
+        <button
+          type="button"
+          aria-pressed={kind === "image"}
+          onClick={() => input.current?.click()}
+          className={`rounded-lg border px-2 py-2 text-xs transition ${kind === "image" ? "border-orange-500 bg-orange-700/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"}`}
+        >
+          {kind === "image" ? "Replace picture" : "Upload picture"}
+        </button>
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+        className="hidden"
+        data-testid="bg-image-input"
+        aria-label="Background picture"
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (!f) return;
+          try {
+            editorStore.getState().setBackgroundImage(await blobToLoadedImage(f));
+            setError(null);
+          } catch {
+            setError("That file couldn't be read as an image.");
+          }
+        }}
+      />
+      {error && (
+        <p role="alert" className="text-xs text-red-300">
+          {error}
+        </p>
+      )}
+      <p className="text-xs text-neutral-400">A transparent background keeps its see-through areas in PNG and WebP. JPG gets a white backing.</p>
     </Section>
   );
 }
@@ -205,8 +288,10 @@ export function BackgroundPanel() {
           </label>
         </div>
       </Section>
+      <PictureBackgroundSection />
       <SceneSection />
       <Section title="Effects">
+        <Slider label="Window light" value={Math.round(effects.light * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.effects.light = v / 100), "fx-light")} />
         <Slider label="Film grain" value={Math.round(effects.noise * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.effects.noise = v / 100), "fx-noise")} />
         <Slider label="VHS" value={Math.round(effects.vhs * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.effects.vhs = v / 100), "fx-vhs")} />
         <Slider label="Glitch" value={Math.round(effects.glitch * 100)} min={0} max={100} onChange={(v) => update((d) => void (d.effects.glitch = v / 100), "fx-glitch")} />
@@ -316,6 +401,43 @@ function ScreensSection({ actions }: PanelProps) {
   );
 }
 
+const SHOT_STYLES: { id: ShotStyle; label: string }[] = [
+  { id: "default", label: "Default" },
+  { id: "glassLight", label: "Glass light" },
+  { id: "glassDark", label: "Glass dark" },
+  { id: "inset", label: "Inset" },
+  { id: "outline", label: "Outline" },
+  { id: "border", label: "Border" },
+];
+
+function ShotStyleSection() {
+  const style = useEditor((s) => s.doc.shot.style);
+  const opacity = useEditor((s) => s.doc.shot.styleOpacity);
+  return (
+    <Section title="Edge style">
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Edge style">
+        {SHOT_STYLES.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            aria-pressed={style === o.id}
+            onClick={() => update((d) => void (d.shot.style = o.id))}
+            className={`rounded-lg border px-2 py-2 text-xs transition ${style === o.id ? "border-orange-500 bg-orange-700/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {style !== "default" && style !== "inset" && (
+        <Slider label="Edge strength" value={Math.round(opacity * 100)} min={10} max={100} format={(v) => `${v}%`} onChange={(v) => update((d) => void (d.shot.styleOpacity = v / 100), "shot-style-opacity")} />
+      )}
+      {style === "inset" && (
+        <Slider label="Edge depth" value={Math.round(opacity * 100)} min={10} max={100} format={(v) => `${v}%`} onChange={(v) => update((d) => void (d.shot.styleOpacity = v / 100), "shot-style-opacity")} />
+      )}
+    </Section>
+  );
+}
+
 export function StylePanel({ actions }: PanelProps) {
   const frame = useEditor((s) => s.doc.frame);
   const shot = useEditor((s) => s.doc.shot);
@@ -327,6 +449,7 @@ export function StylePanel({ actions }: PanelProps) {
         <Segmented label="Layout" value={layout} options={LAYOUTS} onChange={(kind) => update((d) => void (d.layout.kind = kind))} />
       </Section>
       <ScreensSection actions={actions} />
+      <ShotStyleSection />
       <Section title="Frame">
         <Segmented label="Window frame" value={device ? ("" as FrameStyle) : frame.style} options={WINDOW_FRAMES} onChange={(style) => update((d) => void (d.frame.style = style))} />
         <div className="grid grid-cols-3 gap-2">

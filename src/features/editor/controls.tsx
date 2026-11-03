@@ -1,13 +1,20 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { icons } from "./icons";
 
+/** A panel section that can be folded away. Open by default; the heading stays a real heading inside the summary. */
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="border-b border-white/10 px-4 py-4">
-      <h2 className="mb-3 text-[11px] font-semibold tracking-wider text-neutral-400 uppercase">{title}</h2>
-      <div className="flex flex-col gap-3">{children}</div>
-    </section>
+    <details open className="group border-b border-ed-line px-4 py-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between rounded-md py-1 text-neutral-400 hover:text-neutral-200 [&::-webkit-details-marker]:hidden">
+        <h2 className="text-[11px] font-semibold tracking-wider uppercase">{title}</h2>
+        <span aria-hidden="true" className="transition-transform group-open:rotate-180">
+          {icons.chevron}
+        </span>
+      </summary>
+      <div className="mt-3 flex flex-col gap-3">{children}</div>
+    </details>
   );
 }
 

@@ -3,7 +3,7 @@
 Open-source screenshot and screen recording beautifier that runs in your browser.
 Turn a plain screenshot into a polished post or device mockup. No account, no upload.
 
-> Status: early development (Phases 0-4 done: image editor with annotations, brand kit, templates, command palette, device mockups, 3D perspective, and video: recording, timeline editing, animations, sound, and MP4/WebM/GIF export). See [PLAN.md](./PLAN.md) for the roadmap.
+> Status: working, pre-1.0. The editor covers screenshots and video: annotations, brand kit, templates, device mockups with 3D tilt, edge styles, 3D shapes, effects, recording, a timeline with cuts, speed and animation, sound, and PNG/JPG/WebP/WebM/MP4/GIF export. Optional self-hosted share links and screenshots of web addresses. MP4 export has not yet been tried in a real browser. See [PLAN.md](./PLAN.md) for details and known limits.
 
 ## Develop
 

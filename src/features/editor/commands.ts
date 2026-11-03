@@ -35,6 +35,8 @@ export interface CommandContext {
   exportVideo: () => void;
   setFormat: (f: ExportFormat) => void;
   setScale: (s: number) => void;
+  shortcuts: () => void;
+  startOver: () => void;
 }
 
 const PANELS = [
@@ -59,6 +61,8 @@ export function buildCommands(ctx: CommandContext): Command[] {
   const store = () => editorStore.getState();
   const cmds: Command[] = [
     { id: "upload", group: "File", label: "Upload image or video", keywords: "import open screenshot recording", run: ctx.upload },
+    { id: "start-over", group: "File", label: "Start over (new design)", keywords: "reset clear new blank", run: ctx.startOver },
+    { id: "shortcuts", group: "Help", label: "Keyboard shortcuts", keywords: "keys help hotkeys", hint: "?", run: ctx.shortcuts },
     { id: "capture", group: "File", label: "Capture screen", keywords: "screenshot display window tab", run: ctx.capture },
     { id: "record", group: "File", label: "Record screen", keywords: "video recording capture display window tab", run: ctx.record },
     {

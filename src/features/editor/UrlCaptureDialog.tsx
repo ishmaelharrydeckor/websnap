@@ -89,7 +89,7 @@ export function UrlCaptureDialog({ onClose, onCapture }: { onClose: () => void; 
         role="dialog"
         aria-modal="true"
         aria-label="Screenshot a web address"
-        className="w-full max-w-md rounded-xl border border-white/10 bg-neutral-900 p-5 shadow-2xl outline-none"
+        className="w-full max-w-md rounded-xl border border-white/10 bg-ed-raised p-5 shadow-2xl outline-none"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
@@ -122,7 +122,7 @@ export function UrlCaptureDialog({ onClose, onCapture }: { onClose: () => void; 
             </label>
             <label className="block text-xs text-neutral-300">
               Window size
-              <select value={view} onChange={(e) => setView(e.target.value)} disabled={busy} className={`mt-1 w-full ${field} bg-neutral-900`}>
+              <select value={view} onChange={(e) => setView(e.target.value)} disabled={busy} className={`mt-1 w-full ${field} bg-ed-raised`}>
                 {VIEWS.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.label}

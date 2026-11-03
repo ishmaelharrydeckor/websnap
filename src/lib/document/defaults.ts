@@ -17,7 +17,7 @@ export function createDefaultDocument(): DesignDocument {
     frame: { style: "browser", dark: false, url: "yourproduct.com" },
     layout: { kind: "single" },
     tilt: { x: 0, y: 0, z: 0 },
-    shot: { padding: 0.09, radius: 14, shadow: 55, shadowMode: "spread" },
+    shot: { style: "default", styleOpacity: 0.4, padding: 0.09, radius: 14, shadow: 55, shadowMode: "spread" },
     headline: {
       show: false,
       text: "Ship pages people remember",
@@ -27,7 +27,7 @@ export function createDefaultDocument(): DesignDocument {
       color: "#ffffff",
     },
     watermark: { show: false, text: "yourproduct.com" },
-    effects: { noise: 0, vhs: 0, glitch: 0 },
+    effects: { noise: 0, vhs: 0, glitch: 0, light: 0 },
     scene: { kind: "none", palette: "auto", seed: 1, size: 1, motion: 0.5 },
     media: [],
     layers: [],

@@ -28,9 +28,19 @@ export type Background =
   | { kind: "solid"; color: string }
   | { kind: "gradient"; angle: number; stops: { offset: number; color: string }[] }
   | { kind: "wallpaper"; id: string }
-  | { kind: "mesh"; base: string; blobs: MeshBlob[] };
+  | { kind: "mesh"; base: string; blobs: MeshBlob[] }
+  /** Nothing is painted, so a PNG or WebP export keeps a see-through background. */
+  | { kind: "transparent" }
+  /** A picture of your own, scaled to cover the canvas. */
+  | { kind: "image"; assetId: string };
+
+/** How the screenshot's window or device is dressed: plain, or with a frosted, inset, outlined or bordered edge. */
+export type ShotStyle = "default" | "glassLight" | "glassDark" | "inset" | "outline" | "border";
 
 export interface ShotSettings {
+  style: ShotStyle;
+  /** Strength of the glass, outline or border, 0.1-1. */
+  styleOpacity: number;
   /** Padding around the screenshot as a fraction of the shorter canvas side (0-0.4). */
   padding: number;
   /** Corner radius in canvas pixels. */
@@ -60,6 +70,8 @@ export interface EffectsSettings {
   noise: number;
   vhs: number;
   glitch: number;
+  /** Soft diagonal bands of shade, like sunlight through blinds. */
+  light: number;
 }
 
 export type SceneKind = "none" | "orbs" | "cubes" | "rings" | "mix";

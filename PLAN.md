@@ -187,6 +187,22 @@ everything it needs (upload, paste, drop, screen capture, recording, export) alr
 - **Repo basics**: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, issue and PR templates. Contribution terms
   (CLA or DCO) are deliberately left undecided in CONTRIBUTING.
 
+### Second look at Shots (ideas only), and a UI refresh
+Added after re-reading what Shots offers (nothing copied):
+- **Edge styles** for the screenshot's window or device: glass light, glass dark, inset, outline, border, with a
+  strength slider. Works flat and tilted; templates keep the user's chosen style.
+- **Transparent** and **own-picture** backgrounds (PNG/WebP keep the see-through areas, JPG gets a white backing;
+  the preview shows a checkerboard), and **custom canvas size** (16-8192 px).
+- **Window light** effect (soft diagonal bands of shade, drifting over time).
+- **Fast preview** (half-size preview for heavy designs; exports unaffected), **keyboard shortcuts** list (`?`),
+  **Start over** (with confirmation).
+- Fixed along the way: effects were only applied to the top-left part of a 2x export and to the wrong area of
+  scaled video frames; they now follow the canvas's real pixel size.
+- **UI refresh**: Geist type (the old rule forced Arial), three-step surface tokens, icons, grouped toolbars,
+  export options moved to a bar above the canvas, icon tabs, collapsible panel sections, dot-grid stage.
+Not done from that list: portrait/landscape toggle for devices, layouts for more than three screens, stock photo
+search (needs an API key and a service), a "liquid glass" refraction look, and live background variants for video.
+
 ## Templates
 Templates are JSON documents in our own model that keep the user's content when swapped.
 Shipped: Hero, Spotlight, Clean, Bold, Minimal, Soft, Ocean, Studio (Phase 2); iPhone, MacBook,

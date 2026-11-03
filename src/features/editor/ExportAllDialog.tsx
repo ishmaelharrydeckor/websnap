@@ -57,7 +57,7 @@ export function ExportAllDialog({ format, scale, onClose, onDone }: { format: Ex
         role="dialog"
         aria-modal="true"
         aria-label="Export all sizes"
-        className="w-full max-w-md rounded-xl border border-white/10 bg-neutral-900 p-5 shadow-2xl outline-none"
+        className="w-full max-w-md rounded-xl border border-white/10 bg-ed-raised p-5 shadow-2xl outline-none"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape" && !busy) {

@@ -188,7 +188,7 @@ export function Timeline() {
   const ticks = Array.from({ length: Math.floor(duration / step) + 1 }, (_, i) => i * step);
 
   return (
-    <section aria-label="Timeline" className="max-h-[45vh] shrink-0 overflow-y-auto border-t border-white/10 bg-neutral-950 px-4 py-3">
+    <section aria-label="Timeline" className="max-h-[45vh] shrink-0 overflow-y-auto border-t border-white/10 bg-ed-bg px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -237,7 +237,7 @@ export function Timeline() {
                 disabled={!selectedSegment}
                 value={selectedSegment?.speed ?? 1}
                 onChange={(e) => selected !== null && edit((segs) => setSpeed(segs, selected, Number(e.target.value)))}
-                className="rounded-md border border-white/10 bg-neutral-900 px-1.5 py-1 text-white disabled:opacity-40"
+                className="rounded-md border border-white/10 bg-ed-raised px-1.5 py-1 text-white disabled:opacity-40"
               >
                 {(selectedSegment && !SPEEDS.includes(selectedSegment.speed) ? [...SPEEDS, selectedSegment.speed].sort((a, b) => a - b) : SPEEDS).map((v) => (
                   <option key={v} value={v}>
@@ -515,7 +515,7 @@ function ClipInspector({ clip }: { clip: AnimationClip }) {
                 const preset = TILT_PRESETS.find((t) => t.id === e.target.value);
                 if (preset) editorStore.getState().updateClip(clip.id, (c) => ({ ...c, params: { ...c.params, ...preset.tilt } }));
               }}
-              className="rounded-md border border-white/10 bg-neutral-900 px-2 py-1.5 text-white"
+              className="rounded-md border border-white/10 bg-ed-raised px-2 py-1.5 text-white"
             >
               <option value="">Choose…</option>
               {TILT_PRESETS.filter((t) => t.id !== "flat").map((t) => (

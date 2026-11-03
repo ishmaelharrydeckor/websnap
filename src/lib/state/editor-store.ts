@@ -34,6 +34,8 @@ export interface UiState {
   tool: Tool;
   selectedId: string | null;
   timelineOpen: boolean;
+  /** Draw the preview at half size so heavy designs stay smooth. Exports are unaffected. */
+  fastPreview: boolean;
   /** The cut selected in the timeline, by index. */
   selectedSegment: number | null;
   /** The animation clip selected in the timeline. */
@@ -86,6 +88,7 @@ export interface EditorState {
   setTime: (time: number) => void;
   setPlaying: (playing: boolean) => void;
   setTimelineOpen: (open: boolean) => void;
+  setFastPreview: (on: boolean) => void;
   selectSegment: (index: number | null) => void;
   selectClip: (id: string | null) => void;
   /** Adds an animation clip at `at` seconds and selects it. */
@@ -108,6 +111,8 @@ export interface EditorState {
   setBrand: (brand: Brand, logo?: LoadedImage) => void;
   /** Registers an image and adds it as a layer on the canvas. */
   addImageLayer: (image: LoadedImage) => void;
+  /** Registers a picture and uses it as the background. */
+  setBackgroundImage: (image: LoadedImage) => void;
   undo: () => void;
   redo: () => void;
   /** Replace everything (used when loading a saved design). Clears history. */
@@ -123,7 +128,7 @@ export function createEditorStore() {
 
   return createStore<EditorState>()((set, get) => ({
     doc: createDefaultDocument(),
-    ui: { tool: "select", selectedId: null, timelineOpen: false, selectedSegment: null, selectedClip: null },
+    ui: { tool: "select", selectedId: null, timelineOpen: false, fastPreview: false, selectedSegment: null, selectedClip: null },
     playback: { time: 0, playing: false },
     brand: EMPTY_BRAND,
     past: [],
@@ -223,6 +228,7 @@ export function createEditorStore() {
     },
 
     setTimelineOpen: (open) => set((s) => ({ ui: { ...s.ui, timelineOpen: open } })),
+    setFastPreview: (on) => set((s) => ({ ui: { ...s.ui, fastPreview: on } })),
 
     setTool: (tool) => set((s) => ({ ui: { ...s.ui, tool, selectedId: tool === "select" ? s.ui.selectedId : null } })),
 
@@ -269,6 +275,11 @@ export function createEditorStore() {
       const w = 0.3;
       const h = Math.min(0.6, w * (image.height / image.width) * (cw / ch));
       get().addLayer({ id: crypto.randomUUID(), visible: true, type: "image", x: 0.35, y: Math.max(0, 0.5 - h / 2), w, h, assetId: image.id });
+    },
+
+    setBackgroundImage: (image) => {
+      set((s) => ({ images: { ...s.images, [image.id]: image } }));
+      get().update((d) => void (d.background = { kind: "image", assetId: image.id }));
     },
 
     undo: () => {

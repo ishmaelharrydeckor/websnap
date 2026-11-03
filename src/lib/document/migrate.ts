@@ -1,5 +1,5 @@
 import { createDefaultDocument } from "./defaults";
-import type { DesignDocument, SceneKind, ScenePalette } from "./types";
+import type { DesignDocument, SceneKind, ScenePalette, ShotStyle } from "./types";
 
 /**
  * Fills in anything a saved document is missing (fields added in later releases) so older
@@ -15,7 +15,7 @@ export function normalizeDocument(saved: Partial<DesignDocument>): DesignDocumen
     frame: { ...d.frame, ...saved.frame },
     layout: { ...d.layout, ...saved.layout },
     tilt: { ...d.tilt, ...saved.tilt },
-    shot: { ...d.shot, ...saved.shot },
+    shot: sanitizeShot({ ...d.shot, ...saved.shot }, d.shot),
     headline: { ...d.headline, ...saved.headline },
     watermark: { ...d.watermark, ...saved.watermark },
     effects: sanitizeEffects({ ...d.effects, ...saved.effects }),
@@ -38,7 +38,7 @@ function sanitizeCanvas(c: DesignDocument["canvas"], fallback: DesignDocument["c
 const unit = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
 
 function sanitizeEffects(e: DesignDocument["effects"]): DesignDocument["effects"] {
-  return { noise: unit(e.noise), vhs: unit(e.vhs), glitch: unit(e.glitch) };
+  return { noise: unit(e.noise), vhs: unit(e.vhs), glitch: unit(e.glitch), light: unit(e.light) };
 }
 
 const KINDS: SceneKind[] = ["none", "orbs", "cubes", "rings", "mix"];
@@ -53,4 +53,11 @@ function sanitizeScene(s: DesignDocument["scene"], fallback: DesignDocument["sce
     size: num(s.size, 0.5, 1.6, fallback.size),
     motion: num(s.motion, 0, 1, fallback.motion),
   };
+}
+
+const SHOT_STYLES: ShotStyle[] = ["default", "glassLight", "glassDark", "inset", "outline", "border"];
+
+function sanitizeShot(s: DesignDocument["shot"], fallback: DesignDocument["shot"]): DesignDocument["shot"] {
+  const opacity = typeof s.styleOpacity === "number" && Number.isFinite(s.styleOpacity) ? Math.min(1, Math.max(0.1, s.styleOpacity)) : fallback.styleOpacity;
+  return { ...s, style: SHOT_STYLES.includes(s.style) ? s.style : fallback.style, styleOpacity: opacity };
 }

@@ -119,7 +119,7 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
         role="dialog"
         aria-modal="true"
         aria-label="Export video"
-        className="w-full max-w-md rounded-xl border border-white/10 bg-neutral-900 p-5 shadow-2xl outline-none"
+        className="w-full max-w-md rounded-xl border border-white/10 bg-ed-raised p-5 shadow-2xl outline-none"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape" && !busy) {
@@ -161,7 +161,7 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
               value={sizeId}
               disabled={busy}
               onChange={(e) => setSizeId(e.target.value)}
-              className="w-full rounded-md border border-white/10 bg-neutral-950 px-2 py-1.5 text-white"
+              className="w-full rounded-md border border-white/10 bg-ed-bg px-2 py-1.5 text-white"
             >
               {!preset && <option value={canvas.sizeId}>Current ({canvas.width}×{canvas.height})</option>}
               {SIZE_PRESETS.map((p) => (
@@ -173,7 +173,7 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
           </label>
           <label className="text-neutral-300">
             <span className="mb-1 block">Scale</span>
-            <select aria-label="Video scale" value={scale} disabled={busy} onChange={(e) => setScale(Number(e.target.value))} className="w-full rounded-md border border-white/10 bg-neutral-950 px-2 py-1.5 text-white">
+            <select aria-label="Video scale" value={scale} disabled={busy} onChange={(e) => setScale(Number(e.target.value))} className="w-full rounded-md border border-white/10 bg-ed-bg px-2 py-1.5 text-white">
               {SCALES.map((s) => (
                 <option key={s} value={s}>
                   {Math.round(s * 100)}%
@@ -183,7 +183,7 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
           </label>
           <label className="text-neutral-300">
             <span className="mb-1 block">Frame rate</span>
-            <select aria-label="Frame rate" value={fps} disabled={busy} onChange={(e) => setFps(Number(e.target.value))} className="w-full rounded-md border border-white/10 bg-neutral-950 px-2 py-1.5 text-white">
+            <select aria-label="Frame rate" value={fps} disabled={busy} onChange={(e) => setFps(Number(e.target.value))} className="w-full rounded-md border border-white/10 bg-ed-bg px-2 py-1.5 text-white">
               {FPS_OPTIONS[format].map((r) => (
                 <option key={r} value={r}>
                   {r} fps

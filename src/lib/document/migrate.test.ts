@@ -45,9 +45,9 @@ describe("normalizeDocument canvas sanitising", () => {
 
 describe("normalizeDocument effects", () => {
   it("gives old designs no effects and clamps bad values", () => {
-    expect(normalizeDocument({}).effects).toEqual({ noise: 0, vhs: 0, glitch: 0 });
-    const bad = normalizeDocument({ effects: { noise: 5, vhs: -2, glitch: NaN } }).effects;
-    expect(bad).toEqual({ noise: 1, vhs: 0, glitch: 0 });
+    expect(normalizeDocument({}).effects).toEqual({ noise: 0, vhs: 0, glitch: 0, light: 0 });
+    const bad = normalizeDocument({ effects: { noise: 5, vhs: -2, glitch: NaN, light: 0 } }).effects;
+    expect(bad).toEqual({ noise: 1, vhs: 0, glitch: 0, light: 0 });
   });
 });
 
@@ -60,5 +60,14 @@ describe("normalizeDocument scene", () => {
     expect(s).toMatchObject({ kind: "none", palette: "auto", size: 1.6, motion: 0 });
     expect(Number.isFinite(s.seed)).toBe(true);
     expect(normalizeDocument({ scene: { kind: "rings", palette: "ocean", seed: 7.9, size: 1.2, motion: 0.3 } }).scene).toEqual({ kind: "rings", palette: "ocean", seed: 7, size: 1.2, motion: 0.3 });
+  });
+});
+
+describe("normalizeDocument shot style", () => {
+  it("defaults old designs to the plain style and repairs bad values", () => {
+    expect(normalizeDocument({}).shot).toMatchObject({ style: "default", styleOpacity: 0.4 });
+    const s = normalizeDocument({ shot: { style: "neon", styleOpacity: 9, padding: 0.1, radius: 8, shadow: 10, shadowMode: "hug" } as never }).shot;
+    expect(s).toMatchObject({ style: "default", styleOpacity: 1, padding: 0.1, shadowMode: "hug" });
+    expect(normalizeDocument({ shot: { style: "glassDark", styleOpacity: 0.7 } as never }).shot).toMatchObject({ style: "glassDark", styleOpacity: 0.7 });
   });
 });

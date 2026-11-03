@@ -39,6 +39,9 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
   const media = useEditor((s) => s.doc.media);
   const loaded = useEditor((s) => s.images);
   const time = useEditor((s) => s.playback.time);
+  const fast = useEditor((s) => s.ui.fastPreview);
+  // A half-size preview draws a quarter of the pixels; the overlay and all the geometry still work in design coordinates.
+  const previewScale = fast ? 0.5 : 1;
   // Bumped when a video finishes seeking or decoding a frame, so a paused preview redraws.
   const [frame, setFrame] = useState(0);
 
@@ -81,13 +84,17 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
-    if (ctx) renderDocument(ctx, doc, { screens: screens.map((i) => i?.source), images, draft }, time);
+    if (ctx) {
+      ctx.setTransform(previewScale, 0, 0, previewScale, 0, 0);
+      renderDocument(ctx, doc, { screens: screens.map((i) => i?.source), images, draft }, time);
+    }
     // `time` and `frame` aren't read here, but a new playhead position or decoded video frame means the picture changed.
-  }, [doc, screens, images, draft, time, frame]);
+  }, [doc, screens, images, draft, time, frame, previewScale]);
 
   const scale = avail.width > 0 ? Math.min(avail.width / doc.canvas.width, avail.height / doc.canvas.height) : 0;
   const width = doc.canvas.width * scale;
   const height = doc.canvas.height * scale;
+  const transparent = doc.background.kind === "transparent";
   const selected = doc.layers.find((l) => l.id === selectedId);
   // Geometry follows the animated tilt. While the camera zooms or drifts the picture isn't where the static layout
   // puts it, so mouse editing pauses until the playhead is clear of those animations.
@@ -218,12 +225,17 @@ export function Stage({ onDropFile }: { onDropFile?: (file: File, slot: number) 
       <div className="relative" style={{ width, height }}>
         <canvas
           ref={canvasRef}
-          width={doc.canvas.width}
-          height={doc.canvas.height}
+          width={Math.round(doc.canvas.width * previewScale)}
+          height={Math.round(doc.canvas.height * previewScale)}
           data-testid="editor-canvas"
           role="img"
           aria-label={`Preview of your design, ${doc.canvas.width} by ${doc.canvas.height} pixels`}
           className="block size-full rounded-lg shadow-2xl"
+          style={
+            transparent
+              ? { backgroundColor: "#d4d4d8", backgroundImage: "conic-gradient(#f4f4f5 25%, transparent 0 50%, #f4f4f5 0 75%, transparent 0)", backgroundSize: "20px 20px" }
+              : undefined
+          }
         />
         {!atRest && (
           <div role="status" className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 rounded-md bg-black/70 px-3 py-1 text-xs text-white">

@@ -20,10 +20,22 @@ export interface RenderInput {
   images?: Record<string, RenderableImage>;
   /** A layer being drawn right now (not yet in the document). */
   draft?: Layer;
+  /** Colour painted under everything, for formats that can't hold transparency (JPEG). */
+  backing?: string;
 }
 
-function fillBackground(ctx: CanvasRenderingContext2D, bg: Background, w: number, h: number) {
-  if (bg.kind === "wallpaper") {
+function fillBackground(ctx: CanvasRenderingContext2D, bg: Background, w: number, h: number, images?: Record<string, RenderableImage>) {
+  if (bg.kind === "transparent") return;
+  if (bg.kind === "image") {
+    const img = images?.[bg.assetId];
+    if (img) {
+      // Scale to cover the whole canvas, centred.
+      const k = Math.max(w / img.width, h / img.height);
+      ctx.drawImage(img, (w - img.width * k) / 2, (h - img.height * k) / 2, img.width * k, img.height * k);
+      return;
+    }
+    ctx.fillStyle = "#222222"; // the picture is missing or still loading
+  } else if (bg.kind === "wallpaper") {
     const wp = getWallpaper(bg.id);
     if (wp) {
       ctx.save();
@@ -219,6 +231,86 @@ function drawShadow(
   ctx.restore();
 }
 
+/** Extra room around the frame that a glass, outline or border style paints into, in canvas pixels. */
+export function stylePad(doc: DesignDocument): number {
+  const unit = Math.min(doc.canvas.width, doc.canvas.height);
+  switch (doc.shot.style) {
+    case "glassLight":
+    case "glassDark":
+      return unit * 0.022;
+    case "border":
+      return unit * 0.012;
+    case "outline":
+      return unit * 0.026;
+    default:
+      return 0;
+  }
+}
+
+/** Rounded rectangle path for the ring a style draws around a slot's frame. */
+function ringPath(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot, grow: number) {
+  const f = slot.frame;
+  const base = isDeviceFrame(doc.frame.style) ? Math.min(f.width, f.height) * 0.06 : doc.shot.radius;
+  roundedRectPath(ctx, { x: f.x - grow, y: f.y - grow, width: f.width + grow * 2, height: f.height + grow * 2 }, base + grow);
+}
+
+/** Frosted, outlined or bordered edge, drawn behind the window or device. */
+function drawStyleBehind(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot) {
+  const { style, styleOpacity: o } = doc.shot;
+  const pad = stylePad(doc);
+  if (pad <= 0) return;
+  const unit = Math.min(doc.canvas.width, doc.canvas.height);
+  ctx.save();
+  if (style === "glassLight" || style === "glassDark") {
+    const light = style === "glassLight";
+    ringPath(ctx, doc, slot, pad);
+    const f = slot.frame;
+    const g = ctx.createLinearGradient(f.x, f.y - pad, f.x + f.width * 0.6, f.y + f.height + pad);
+    g.addColorStop(0, light ? `rgba(255,255,255,${0.55 * o + 0.1})` : `rgba(255,255,255,${0.22 * o + 0.04})`);
+    g.addColorStop(1, light ? `rgba(255,255,255,${0.25 * o})` : `rgba(10,12,20,${0.5 * o + 0.1})`);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, unit * 0.0015);
+    ctx.strokeStyle = light ? `rgba(255,255,255,${0.5 + 0.4 * o})` : `rgba(255,255,255,${0.25 + 0.3 * o})`;
+    ctx.stroke();
+  } else if (style === "border") {
+    ringPath(ctx, doc, slot, pad);
+    ctx.fillStyle = doc.frame.dark ? `rgba(28,28,31,${0.4 + 0.6 * o})` : `rgba(255,255,255,${0.4 + 0.6 * o})`;
+    ctx.fill();
+  } else if (style === "outline") {
+    ringPath(ctx, doc, slot, pad);
+    ctx.lineWidth = Math.max(2, unit * 0.003);
+    ctx.strokeStyle = doc.frame.dark ? `rgba(255,255,255,${0.35 + 0.65 * o})` : `rgba(255,255,255,${0.5 + 0.5 * o})`;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Inset: the screen looks sunk into the surface, with a soft shadow along its inside edge. */
+function drawInset(ctx: CanvasRenderingContext2D, doc: DesignDocument, slot: Slot) {
+  const { content } = slot;
+  const unit = Math.min(doc.canvas.width, doc.canvas.height);
+  const blur = unit * 0.03 * (0.4 + doc.shot.styleOpacity);
+  ctx.save();
+  roundedRectPath(ctx, content, slot.contentRadius);
+  ctx.clip();
+  // A frame-shaped hole filled with shadow, cast inwards: draw a big ring with the shadow and keep only what is inside the clip.
+  ctx.shadowColor = `rgba(0,0,0,${0.35 + 0.5 * doc.shot.styleOpacity})`;
+  ctx.shadowBlur = blur;
+  ctx.shadowOffsetY = blur * 0.35;
+  roundedRectPath(ctx, content, slot.contentRadius); // starts a fresh path, so the outer rectangle is added after it
+  ctx.rect(content.x - unit, content.y - unit, content.width + unit * 2, content.height + unit * 2);
+  ctx.fillStyle = "#000";
+  ctx.fill("evenodd");
+  ctx.restore();
+  ctx.save();
+  roundedRectPath(ctx, content, slot.contentRadius);
+  ctx.lineWidth = Math.max(1, unit * 0.0016);
+  ctx.strokeStyle = `rgba(255,255,255,${0.12 + 0.2 * doc.shot.styleOpacity})`;
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** The window or device itself with its screenshot and effects, but no shadow. */
 function drawCard(
   ctx: CanvasRenderingContext2D,
@@ -236,6 +328,7 @@ function drawCard(
   // Where the whole image lands: stretched into windows (which match its aspect), cover-fitted into device screens.
   const imageRect = screen && device ? coverRect(content, screen) : content;
 
+  drawStyleBehind(ctx, doc, slot);
   ctx.save();
   if (device) {
     device.drawBody(ctx, frame, doc.frame.dark);
@@ -271,6 +364,7 @@ function drawCard(
     device.drawOverlay(ctx, frame, doc.frame.dark);
     ctx.restore();
   }
+  if (doc.shot.style === "inset") drawInset(ctx, doc, slot);
 }
 
 /** Offscreen canvases are capped so a big zoom or a 2x export can't ask for an enormous bitmap. */
@@ -290,8 +384,11 @@ function drawSlot(
     return;
   }
   // Tilted: render the card flat offscreen (at output resolution), then project it with perspective.
-  const pixelScale = Math.min(ctx.getTransform().a || 1, MAX_OFFSCREEN / Math.max(slot.frame.width, slot.frame.height));
-  const card = renderToOffscreen(slot.frame, pixelScale, (octx) => drawCard(octx, doc, slot, screen, shotLayers, alphaOf));
+  // The card's canvas is a little larger than the frame when a style paints around it, and is projected from the same centre.
+  const pad = stylePad(doc);
+  const outer = { x: slot.frame.x - pad, y: slot.frame.y - pad, width: slot.frame.width + pad * 2, height: slot.frame.height + pad * 2 };
+  const pixelScale = Math.min(ctx.getTransform().a || 1, MAX_OFFSCREEN / Math.max(outer.width, outer.height));
+  const card = renderToOffscreen(outer, pixelScale, (octx) => drawCard(octx, doc, slot, screen, shotLayers, alphaOf));
   const k = fitScale(projectedQuad(slot.frame, doc.tilt), slot.cell);
 
   if (applyShadowEnabled(doc)) {
@@ -308,7 +405,7 @@ function drawSlot(
     drawProjected(lctx, outline, slot.frame, doc.tilt, k);
     drawShadow(ctx, doc, slot, screen, layer);
   }
-  drawProjected(ctx, card, slot.frame, doc.tilt, k);
+  drawProjected(ctx, card, outer, doc.tilt, k);
 }
 
 function applyShadowEnabled(doc: DesignDocument): boolean {
@@ -326,6 +423,10 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
   const state = frameStateAt(source, t);
   const unit = Math.min(cw, ch);
   ctx.clearRect(0, 0, cw, ch);
+  if (input.backing) {
+    ctx.fillStyle = input.backing;
+    ctx.fillRect(0, 0, cw, ch);
+  }
 
   const screens = input.screens ?? [];
   const { slots, headline } = computeLayout(
@@ -358,10 +459,10 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
     ctx.translate(cw / 2 + bg.x, ch / 2 + bg.y);
     ctx.scale(grow, grow);
     ctx.translate(-cw / 2, -ch / 2);
-    fillBackground(ctx, doc.background, cw, ch);
+    fillBackground(ctx, doc.background, cw, ch, input.images);
     ctx.restore();
   } else {
-    fillBackground(ctx, doc.background, cw, ch);
+    fillBackground(ctx, doc.background, cw, ch, input.images);
   }
 
   // 3D shapes: most sit behind the screens and drift less than they do; a few float in front and drift more.
@@ -405,8 +506,12 @@ export function renderDocument(ctx: CanvasRenderingContext2D, source: DesignDocu
 
   // Looks that act on the finished picture (grain, VHS, glitch) go last, so they cover everything including text.
   if (hasEffects(doc.effects)) {
-    const pixels = ctx.getImageData(0, 0, cw, ch);
-    applyEffects(pixels.data, cw, ch, doc.effects, t);
+    // The canvas may be bigger or smaller than the design (a 2x export, a half-size preview), so work in its own pixels.
+    const k = ctx.getTransform().a || 1;
+    const pw = Math.max(1, Math.round(cw * k));
+    const ph = Math.max(1, Math.round(ch * k));
+    const pixels = ctx.getImageData(0, 0, pw, ph);
+    applyEffects(pixels.data, pw, ph, doc.effects, t);
     ctx.putImageData(pixels, 0, 0);
   }
 }

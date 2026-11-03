@@ -10,7 +10,10 @@ import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
 import { CommandPalette } from "./CommandPalette";
 import { ExportAllDialog } from "./ExportAllDialog";
 import { ExportVideoDialog } from "./ExportVideoDialog";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { icons } from "./icons";
 import { ShareDialog } from "./ShareDialog";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import { UrlCaptureDialog } from "./UrlCaptureDialog";
 import { useOpenShared } from "./useOpenShared";
 import { buildCommands, type Command } from "./commands";
@@ -22,9 +25,10 @@ import { formatTime, Timeline } from "./Timeline";
 import { editorStore, primaryImage, renderInputFor, useEditor } from "./store";
 import { usePersistence } from "./usePersistence";
 import { usePlayback } from "./usePlayback";
+import { createDefaultDocument } from "@/lib/document/defaults";
 import { SITE_NAME } from "@/lib/site";
 
-const TABS: { id: string; label: string; panel: ComponentType<PanelProps> }[] = [
+const TABS: { id: keyof typeof icons; label: string; panel: ComponentType<PanelProps> }[] = [
   { id: "templates", label: "Templates", panel: TemplatesPanel },
   { id: "canvas", label: "Canvas", panel: CanvasPanel },
   { id: "background", label: "Background", panel: BackgroundPanel },
@@ -35,8 +39,34 @@ const TABS: { id: string; label: string; panel: ComponentType<PanelProps> }[] = 
   { id: "brand", label: "Brand", panel: BrandPanel },
 ];
 
-const btn =
-  "whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40";
+const tb = "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40";
+const selectCls = "rounded-lg border border-ed-line bg-ed-raised px-2 py-1.5 text-sm";
+
+/** A row of related toolbar buttons on a shared soft background. */
+function Toolbar({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div role="group" aria-label={label} className="flex items-center gap-1 rounded-xl bg-white/[0.04] p-1">
+      {children}
+    </div>
+  );
+}
+
+function TBtn({ icon, children, pressed, ...rest }: { icon: React.ReactNode; pressed?: boolean } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button type="button" aria-pressed={pressed} className={`${tb} ${pressed ? "bg-white/15 text-white" : "text-neutral-200 hover:bg-white/10"}`} {...rest}>
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function IconBtn({ label, children, ...rest }: { label: string } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button type="button" aria-label={label} title={label} className="grid size-8 place-items-center rounded-lg text-neutral-300 hover:bg-white/10 hover:text-white" {...rest}>
+      {children}
+    </button>
+  );
+}
 
 export function Editor() {
   usePersistence();
@@ -50,6 +80,8 @@ export function Editor() {
   const [exportVideoOpen, setExportVideoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [urlOpen, setUrlOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0); // seconds into the current recording
   const recorder = useRef<RecorderHandle | null>(null);
@@ -65,6 +97,7 @@ export function Editor() {
   const hasImage = useEditor((s) => primaryImage(s) !== undefined);
   const sizeLabel = useEditor((s) => `${s.doc.canvas.width}×${s.doc.canvas.height}`);
   const timelineOpen = useEditor((s) => s.ui.timelineOpen);
+  const fastPreview = useEditor((s) => s.ui.fastPreview);
 
   const notify = useCallback((text: string) => {
     setMessage(text);
@@ -118,6 +151,11 @@ export function Editor() {
         return;
       }
       if (mod || e.altKey) return;
+      if (e.key === "?") {
+        e.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
 
       const { selectedId } = store.ui;
       if (e.key === " " && !(t instanceof HTMLButtonElement)) {
@@ -223,6 +261,8 @@ export function Editor() {
             exportVideo: () => setExportVideoOpen(true),
             setFormat,
             setScale,
+            shortcuts: () => setShortcutsOpen(true),
+            startOver: () => setResetOpen(true),
           }),
     );
   }
@@ -242,27 +282,34 @@ export function Editor() {
   const Active = TABS.find((t) => t.id === tab)!.panel;
 
   return (
-    <div className="flex h-dvh flex-col bg-neutral-950 text-neutral-100">
-      <header className="flex shrink-0 flex-nowrap items-center gap-2 overflow-x-auto border-b border-white/10 px-3 py-2 md:min-h-14 md:flex-wrap md:overflow-visible md:px-4">
-        <h1 className="mr-3 text-sm font-semibold">{SITE_NAME}</h1>
-        <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => fileInput.current?.click()}>
-          Upload image
-        </button>
-        <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={onCapture}>
-          Capture screen
-        </button>
-        <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => setUrlOpen(true)}>
-          From URL
-        </button>
-        {recording ? (
-          <button type="button" className={`${btn} bg-red-600 text-white hover:bg-red-500`} onClick={() => recorder.current?.stop()} aria-label="Stop recording">
-            ● Stop {formatTime(elapsed)}
-          </button>
-        ) : (
-          <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => void onRecord()}>
-            Record screen
-          </button>
-        )}
+    <div className="flex h-dvh flex-col bg-ed-bg text-neutral-100">
+      <header className="flex shrink-0 flex-nowrap items-center gap-3 overflow-x-auto border-b border-ed-line bg-ed-panel px-3 py-2 md:min-h-14 md:flex-wrap md:overflow-visible md:px-4">
+        <h1 className="mr-1 flex items-center gap-2 text-sm font-semibold tracking-tight">
+          <span aria-hidden="true" className="grid size-6 place-items-center rounded-md bg-gradient-to-br from-orange-500 to-fuchsia-600 text-[11px] font-bold text-white">
+            {SITE_NAME.slice(0, 1)}
+          </span>
+          {SITE_NAME}
+        </h1>
+        <Toolbar label="Add media">
+          <TBtn icon={icons.upload} onClick={() => fileInput.current?.click()}>
+            Upload image
+          </TBtn>
+          <TBtn icon={icons.screen} onClick={onCapture}>
+            Capture screen
+          </TBtn>
+          <TBtn icon={icons.link} onClick={() => setUrlOpen(true)}>
+            From URL
+          </TBtn>
+          {recording ? (
+            <button type="button" className={`${tb} bg-red-600 text-white hover:bg-red-500`} onClick={() => recorder.current?.stop()} aria-label="Stop recording">
+              ● Stop {formatTime(elapsed)}
+            </button>
+          ) : (
+            <TBtn icon={icons.record} onClick={() => void onRecord()}>
+              Record screen
+            </TBtn>
+          )}
+        </Toolbar>
         <input
           ref={fileInput}
           type="file"
@@ -304,76 +351,44 @@ export function Editor() {
             }
           }}
         />
-        <div className="mx-2 h-5 w-px bg-white/10" />
-        <button type="button" className={`${btn} hover:bg-white/10`} disabled={!canUndo} onClick={() => editorStore.getState().undo()}>
-          Undo
-        </button>
-        <button type="button" className={`${btn} hover:bg-white/10`} disabled={!canRedo} onClick={() => editorStore.getState().redo()}>
-          Redo
-        </button>
-        <span className="ml-3 text-xs text-neutral-400">{sizeLabel}</span>
-        <button
-          type="button"
-          aria-pressed={timelineOpen}
-          className={`${btn} ml-2 border border-white/10 ${timelineOpen ? "bg-white/15 text-white" : "text-neutral-400 hover:text-white"}`}
-          onClick={() => editorStore.getState().setTimelineOpen(!timelineOpen)}
-        >
-          Timeline
-        </button>
-        <button
-          type="button"
-          className={`${btn} ml-2 border border-white/10 text-neutral-400 hover:text-white`}
-          onClick={() => !commands && togglePalette()}
-        >
-          Search <kbd className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-xs">Ctrl/⌘ K</kbd>
-        </button>
-        <div className="ml-auto flex items-center gap-2 md:flex-wrap">
-          {message && (
-            <span role="status" className="text-xs text-neutral-300">
-              {message}
-            </span>
-          )}
-          <select
-            aria-label="Export format"
-            value={format}
-            onChange={(e) => setFormat(e.target.value as ExportFormat)}
-            className="rounded-lg border border-white/10 bg-neutral-900 px-2 py-1.5 text-sm"
-          >
-            {EXPORT_FORMATS.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Export scale"
-            value={scale}
-            onChange={(e) => setScale(Number(e.target.value))}
-            className="rounded-lg border border-white/10 bg-neutral-900 px-2 py-1.5 text-sm"
-          >
-            <option value={1}>1x</option>
-            <option value={2}>2x</option>
-          </select>
-          <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={onCopy}>
-            Copy
-          </button>
-          <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => setExportAllOpen(true)}>
-            All sizes
-          </button>
-          <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => setExportVideoOpen(true)}>
-            Video
-          </button>
-          <button type="button" className={`${btn} bg-white/10 hover:bg-white/20`} onClick={() => setShareOpen(true)}>
+        <Toolbar label="History">
+          <TBtn icon={icons.undo} disabled={!canUndo} onClick={() => editorStore.getState().undo()}>
+            Undo
+          </TBtn>
+          <TBtn icon={icons.redo} disabled={!canRedo} onClick={() => editorStore.getState().redo()}>
+            Redo
+          </TBtn>
+        </Toolbar>
+        <Toolbar label="View">
+          <TBtn icon={icons.timeline} pressed={timelineOpen} onClick={() => editorStore.getState().setTimelineOpen(!timelineOpen)}>
+            Timeline
+          </TBtn>
+          <TBtn icon={icons.search} onClick={() => !commands && togglePalette()}>
+            Search <kbd className="ml-1 hidden rounded bg-white/10 px-1.5 py-0.5 text-[11px] 2xl:inline">Ctrl/⌘ K</kbd>
+          </TBtn>
+        </Toolbar>
+        <div className="ml-auto flex items-center gap-3 md:flex-wrap">
+          <button type="button" className={`${tb} border border-ed-line hover:bg-white/10`} onClick={() => setShareOpen(true)}>
+            {icons.share}
             Share
           </button>
-          <button type="button" className={`${btn} bg-orange-700 text-white hover:bg-orange-600`} onClick={onExport}>
+          <button type="button" className={`${tb} bg-orange-700 font-semibold text-white shadow-sm hover:bg-orange-600`} onClick={onExport}>
+            {icons.download}
             Download
           </button>
+          <Toolbar label="Help">
+            <IconBtn label="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)}>
+              {icons.help}
+            </IconBtn>
+            <IconBtn label="Start over" onClick={() => setResetOpen(true)}>
+              {icons.reset}
+            </IconBtn>
+          </Toolbar>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <aside className="order-2 flex max-h-[45%] w-full shrink-0 flex-col border-t border-white/10 md:order-none md:max-h-none md:w-[22rem] md:border-t-0 md:border-r">
+        <aside className="order-2 flex bg-ed-panel max-h-[45%] w-full shrink-0 flex-col border-t border-white/10 md:order-none md:max-h-none md:w-[22rem] md:border-t-0 md:border-r">
           <nav className="grid grid-cols-4 border-b border-white/10 text-xs" aria-label="Editor panels">
             {TABS.map((t) => (
               <button
@@ -381,9 +396,10 @@ export function Editor() {
                 type="button"
                 aria-pressed={tab === t.id}
                 onClick={() => setTab(t.id)}
-                className={`min-w-0 truncate px-1 py-2.5 transition ${tab === t.id ? "border-b-2 border-orange-500 text-white" : "text-neutral-400 hover:text-white"}`}
+                className={`flex min-w-0 flex-col items-center gap-1 px-1 py-2.5 transition ${tab === t.id ? "border-b-2 border-orange-500 bg-white/[0.04] text-white" : "border-b-2 border-transparent text-neutral-400 hover:bg-white/[0.03] hover:text-white"}`}
               >
-                {t.label}
+                {icons[t.id]}
+                <span className="max-w-full truncate">{t.label}</span>
               </button>
             ))}
           </nav>
@@ -401,7 +417,7 @@ export function Editor() {
         </aside>
 
         <main
-          className={`relative flex min-h-[12rem] min-w-0 flex-1 items-center justify-center p-3 md:p-8 ${dragging ? "bg-orange-500/10" : ""}`}
+          className="flex min-h-[12rem] min-w-0 flex-1 flex-col"
           onDragOver={(e) => {
             e.preventDefault();
             setDragging(true);
@@ -415,6 +431,50 @@ export function Editor() {
             else notify("Drop an image file (PNG, JPG, WebP).");
           }}
         >
+          <div className="flex shrink-0 flex-nowrap items-center justify-between gap-3 overflow-x-auto border-b border-ed-line bg-ed-panel px-3 py-1.5 md:flex-wrap md:overflow-visible">
+            <div className="flex items-center gap-3 text-xs text-neutral-400">
+              <span className="tabular-nums">{sizeLabel}</span>
+              <button
+                type="button"
+                aria-pressed={fastPreview}
+                title="Draw the preview at half size so heavy designs stay smooth. Exports are not affected."
+                onClick={() => editorStore.getState().setFastPreview(!fastPreview)}
+                className={`rounded-md border px-2 py-1 transition ${fastPreview ? "border-orange-500 text-white" : "border-ed-line text-neutral-300 hover:border-white/30"}`}
+              >
+                Fast preview
+              </button>
+              {message && (
+                <span role="status" className="text-neutral-200">
+                  {message}
+                </span>
+              )}
+            </div>
+            <Toolbar label="Export options">
+              <select aria-label="Export format" value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)} className={selectCls}>
+              {EXPORT_FORMATS.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+              </select>
+              <select aria-label="Export scale" value={scale} onChange={(e) => setScale(Number(e.target.value))} className={selectCls}>
+              <option value={1}>1x</option>
+              <option value={2}>2x</option>
+              </select>
+              <TBtn icon={icons.copy} onClick={onCopy}>
+              Copy
+              </TBtn>
+              <TBtn icon={icons.sizes} onClick={() => setExportAllOpen(true)}>
+              All sizes
+              </TBtn>
+              <TBtn icon={icons.video} onClick={() => setExportVideoOpen(true)}>
+              Video
+              </TBtn>
+          </Toolbar>
+          </div>
+          <div
+            className={`relative flex min-h-0 flex-1 items-center justify-center bg-[radial-gradient(rgb(255_255_255/0.07)_1px,transparent_1px)] [background-size:22px_22px] p-3 md:p-8 ${dragging ? "bg-orange-500/10" : ""}`}
+          >
           <Stage
             onDropFile={(file, slot) => {
               setDragging(false);
@@ -426,9 +486,24 @@ export function Editor() {
               Paste with Ctrl/⌘ V, drop a file, or use the buttons above.
             </p>
           )}
+          </div>
         </main>
       </div>
       {timelineOpen && <Timeline />}
+      {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
+      {resetOpen && (
+        <ConfirmDialog
+          title="Start over?"
+          message="This clears the design, including your screenshots and layers. Your brand kit stays. You can't undo this."
+          confirmLabel="Start over"
+          onCancel={() => setResetOpen(false)}
+          onConfirm={() => {
+            editorStore.getState().load(createDefaultDocument(), []);
+            setResetOpen(false);
+            notify("Started a new design");
+          }}
+        />
+      )}
       {urlOpen && <UrlCaptureDialog onClose={() => setUrlOpen(false)} onCapture={(png) => void importBlob(png)} />}
       {shareOpen && <ShareDialog onClose={() => setShareOpen(false)} onDone={notify} />}
       {exportVideoOpen && <ExportVideoDialog onClose={() => setExportVideoOpen(false)} onDone={notify} />}

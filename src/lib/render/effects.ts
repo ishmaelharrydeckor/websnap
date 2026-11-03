@@ -1,9 +1,9 @@
 import type { EffectsSettings } from "../document/types";
 
-export const NO_EFFECTS: EffectsSettings = { noise: 0, vhs: 0, glitch: 0 };
+export const NO_EFFECTS: EffectsSettings = { noise: 0, vhs: 0, glitch: 0, light: 0 };
 
 export function hasEffects(e: EffectsSettings): boolean {
-  return e.noise > 0 || e.vhs > 0 || e.glitch > 0;
+  return e.noise > 0 || e.vhs > 0 || e.glitch > 0 || e.light > 0;
 }
 
 /** Small deterministic random generator, so a frame looks the same every time it is drawn. */
@@ -125,8 +125,35 @@ export function applyNoise(data: Uint8ClampedArray, w: number, h: number, amount
   }
 }
 
+/**
+ * Window light: soft diagonal bands of shade across the whole picture, like sun through blinds, drifting slowly.
+ * `amount` is 0-1; at 1 the shaded bands are about half as bright.
+ */
+export function applyLight(data: Uint8ClampedArray, w: number, h: number, amount: number, t: number) {
+  if (amount <= 0) return;
+  const angle = 0.5; // radians from vertical
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const period = Math.max(w, h) / 5;
+  const drift = t * period * 0.08;
+  const depth = amount * 0.5;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0, o = y * w * 4; x < w; x++, o += 4) {
+      const u = (x * cos + y * sin + drift) / period;
+      const f = u - Math.floor(u);
+      // A band that is shaded for 45% of the period, with soft edges.
+      const edge = f < 0.45 ? Math.min(1, f / 0.08, (0.45 - f) / 0.08) : 0;
+      const k = 1 - depth * edge;
+      data[o] = data[o] * k;
+      data[o + 1] = data[o + 1] * k;
+      data[o + 2] = data[o + 2] * k;
+    }
+  }
+}
+
 /** Applies every active effect to RGBA pixel data in place. Geometry effects run first, grain last. */
 export function applyEffects(data: Uint8ClampedArray, w: number, h: number, effects: EffectsSettings, t: number) {
+  applyLight(data, w, h, effects.light, t);
   applyGlitch(data, w, h, effects.glitch, t);
   applyVhs(data, w, h, effects.vhs, t);
   applyNoise(data, w, h, effects.noise, t);
