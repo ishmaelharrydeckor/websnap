@@ -8,7 +8,7 @@ stores files or runs a browser.
 
 1. Sign in at vercel.com with your GitHub account.
 2. **Add New → Project**, pick the `websnap` repository.
-3. Leave the defaults (Framework: Next.js, build `npm run build`). Do not set any environment variables.
+3. Set the production branch to `main`. Leave the other defaults (Framework: Next.js, build `npm run build`). Do not set any environment variables.
 4. Deploy. You get a link like `websnap-xxxx.vercel.app`. Open `/editor`.
 5. Optional: **Settings → Domains** to add your own domain.
 

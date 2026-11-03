@@ -8,11 +8,17 @@ the Git repository**, so you lose nothing as long as the work is pushed. This gu
 ```bash
 git clone https://github.com/ishmaelharrydeckor/websnap.git
 cd websnap
-git checkout claude/dreamy-dijkstra-ewhkpn      # all the work so far lives on this branch
 ```
 
-The branch has not been merged into `main`. When you are happy with it, open a pull request from it (or merge it
-yourself) so `main` has everything.
+`main` has all the work. If GitHub still shows another branch as the default, switch the default to `main` in
+Settings → Branches. The branch `claude/dreamy-dijkstra-ewhkpn` is the cloud session's working branch; it points at
+the same commit and can be deleted once you no longer need it.
+
+For new work, make a branch from `main` and open a pull request back into it:
+
+```bash
+git checkout -b my-change
+```
 
 ## 2. Run it
 
