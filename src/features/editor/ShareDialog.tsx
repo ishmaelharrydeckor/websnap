@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { exportBlob } from "@/lib/export/exporter";
+import { track } from "@/lib/analytics/track";
 import { assetsForProject, buildUpload, deleteShare, fetchShareStatus, loadMyShares, rememberShare, saveMyShares, uploadShare, type MyShare, type ShareStatus } from "@/lib/share/client";
 import { editorStore, projectSlides, renderInputForSlide } from "./store";
 import { useModalFocus } from "./useModalFocus";
@@ -49,6 +50,7 @@ export function ShareDialog({ onClose, onDone }: { onClose: () => void; onDone: 
       const preview = await exportBlob(all[0], renderInputForSlide(s, all[0], 0), { format: "png", scale: 1, time: s.active === 0 ? s.playback.time : 0 });
       const result = await uploadShare(buildUpload({ slides: all, active: s.active, continuous: s.continuous }, preview, files), token || undefined);
       const list = rememberShare(result);
+      track("share_created");
       setMine(list);
       setCreated(list[0]);
     } catch (e) {

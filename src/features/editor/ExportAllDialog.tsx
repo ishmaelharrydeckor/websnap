@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SIZE_PRESETS } from "@/lib/assets/sizes";
 import { downloadBlob, exportAllSizes, formatInfo, type ExportFormat } from "@/lib/export/exporter";
+import { track } from "@/lib/analytics/track";
 import { editorStore, renderInputFor } from "./store";
 import { useModalFocus } from "./useModalFocus";
 
@@ -41,6 +42,7 @@ export function ExportAllDialog({ format, scale, onClose, onDone }: { format: Ex
         onProgress: (done, total) => setProgress({ done, total }),
       });
       downloadBlob(zip, "websnap-export.zip");
+      track("export_all_sizes", { sizes: presets.length, format });
       onDone(`Exported ${presets.length} size${presets.length === 1 ? "" : "s"}`);
       onClose();
     } catch {

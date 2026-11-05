@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SIZE_PRESETS } from "@/lib/assets/sizes";
 import { downloadBlob } from "@/lib/export/exporter";
+import { track } from "@/lib/analytics/track";
 import { planAudioMix } from "@/lib/export/audio-plan";
 import { ExportCancelled, exportVideo, VIDEO_FORMATS, videoFormatSupport, type SoundOutcome, type VideoFormat } from "@/lib/export/video";
 import { syncVideos } from "@/lib/video/sync";
@@ -99,6 +100,7 @@ export function ExportVideoDialog({ onClose, onDone }: { onClose: () => void; on
       });
       const ext = VIDEO_FORMATS.find((f) => f.id === format)!.ext;
       downloadBlob(blob, `websnap-video.${ext}`);
+      track("export_video", { format });
       onDone(`Exported ${ext.toUpperCase()} (${(blob.size / 1e6).toFixed(1)} MB)${soundNote(outcome, format, sound && hasSound)}`);
       onClose();
     } catch (e) {

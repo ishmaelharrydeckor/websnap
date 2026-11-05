@@ -1,5 +1,6 @@
 import { SIZE_PRESETS } from "@/lib/assets/sizes";
 import { applyTemplate, TEMPLATES } from "@/lib/assets/templates";
+import { trackTemplate } from "@/lib/analytics/track";
 import { applyBrand } from "@/lib/brand/brand";
 import { EXPORT_FORMATS, type ExportFormat } from "@/lib/export/exporter";
 import type { FrameStyle } from "@/lib/document/types";
@@ -179,7 +180,11 @@ export function buildCommands(ctx: CommandContext): Command[] {
   }
 
   for (const t of TEMPLATES) {
-    cmds.push({ id: `template-${t.id}`, group: "Template", label: `Template: ${t.name}`, run: () => store().update((d) => applyTemplate(d, t)) });
+    cmds.push({ id: `template-${t.id}`, group: "Template", label: `Template: ${t.name}`, run: () => {
+        trackTemplate(t, true);
+        store().update((d) => applyTemplate(d, t));
+      },
+    });
   }
 
   for (const [style, label] of FRAMES) {

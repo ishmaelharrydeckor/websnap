@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentType } from "re
 import { blobToLoadedImage, blobToLoadedMedia, captureScreenFrame, firstImageFrom } from "@/features/capture/import";
 import { startScreenRecording, type RecorderHandle } from "@/features/capture/record";
 import { copyPng, downloadBlob, EXPORT_FORMATS, exportBlob, exportFileName, type ExportFormat } from "@/lib/export/exporter";
+import { track } from "@/lib/analytics/track";
 import { TOOLS, translateLayer } from "@/lib/render/geometry";
 import { removeSegment, splitAt } from "@/lib/timeline/segments";
 import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
@@ -235,6 +236,7 @@ export function Editor() {
     try {
       const blob = await exportBlob(state.doc, renderInputFor(state), { format, scale, time: state.playback.time });
       downloadBlob(blob, exportFileName(state.doc, format));
+      track("export", { format, scale });
     } catch {
       notify("Export failed.");
     }
@@ -244,6 +246,7 @@ export function Editor() {
     const state = editorStore.getState();
     try {
       await copyPng(state.doc, renderInputFor(state), scale, state.playback.time);
+      track("copy");
       notify("Copied to clipboard");
     } catch {
       notify("Copy isn't available here. Use Download instead.");
