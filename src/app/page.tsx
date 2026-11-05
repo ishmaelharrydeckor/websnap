@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { KIT_LOOKS } from "@/lib/kit/looks";
 import { REPO_URL, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
 const FEATURES = [
@@ -25,6 +26,7 @@ export default function Home() {
         <nav aria-label="Main" className="flex items-center gap-5 text-sm text-neutral-300">
           <a href="#features" className="hidden hover:text-white sm:inline">Features</a>
           <a href="#how" className="hidden hover:text-white sm:inline">How it works</a>
+          <Link href="/kit?utm_source=website&utm_medium=nav" className="hidden hover:text-white sm:inline">Launch Kit</Link>
           <a href={REPO_URL} className="hidden hover:text-white sm:inline">Source</a>
           <Link href="/editor" className="whitespace-nowrap rounded-full bg-white px-4 py-2 font-medium text-neutral-900 hover:bg-neutral-200">
             Open the editor
@@ -102,6 +104,28 @@ export default function Home() {
           </ol>
         </section>
 
+        <section className="mx-auto max-w-6xl px-6 py-16">
+          <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-[#2a1566] via-[#1a0f3d] to-[#0d0926] p-8 sm:p-12">
+            <div className="grid items-center gap-10 md:grid-cols-2">
+              <div>
+                <p className="text-sm font-medium text-[#b79cff]">Free · {KIT_LOOKS.length} looks</p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Get the Launch Kit</h2>
+                <p className="mt-4 leading-relaxed text-neutral-300">
+                  Polished backgrounds, device mockups and layouts for every kind of post: apps, SaaS, portfolios, agencies and shops. Import it once, then pick a look.
+                </p>
+                <Link href="/kit?utm_source=website&utm_medium=landing" className="mt-7 inline-block rounded-full bg-white px-6 py-3 text-sm font-semibold text-neutral-900 hover:bg-neutral-200">
+                  Browse the {KIT_LOOKS.length} looks
+                </Link>
+              </div>
+              <div aria-hidden="true" className="relative h-52 sm:h-64">
+                <Image src="/kit/looks/app-store-night.webp" alt="" width={1600} height={900} className="absolute left-0 top-8 w-[58%] -rotate-[5deg] rounded-2xl border border-white/15 shadow-2xl" />
+                <Image src="/kit/looks/editorial-red.webp" alt="" width={1600} height={900} className="absolute right-0 top-8 w-[58%] rotate-[5deg] rounded-2xl border border-white/15 shadow-2xl" />
+                <Image src="/kit/looks/launch-day.webp" alt="" width={1600} height={900} className="absolute left-1/2 top-0 z-10 w-[66%] -translate-x-1/2 rounded-2xl border border-white/15 shadow-2xl" />
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="mx-auto max-w-6xl px-6 pt-8 pb-24 text-center">
           <h2 className="text-3xl font-semibold tracking-tight">Make your first one now</h2>
           <p className="mx-auto mt-3 max-w-xl text-neutral-300">It takes less than a minute, and it&apos;s free.</p>
@@ -118,6 +142,7 @@ export default function Home() {
             <a href={`${REPO_URL}/blob/main/LICENSE`} className="underline hover:text-white">MIT license</a>.
           </span>
           <span className="flex gap-5">
+            <Link href="/kit?utm_source=website&utm_medium=footer" className="hover:text-white">Launch Kit</Link>
             <a href={REPO_URL} className="hover:text-white">Source code</a>
             <a href={`${REPO_URL}/blob/main/CONTRIBUTING.md`} className="hover:text-white">Contribute</a>
             <a href={`${REPO_URL}/blob/main/docs/SELF_HOSTING.md`} className="hover:text-white">Self-hosting</a>

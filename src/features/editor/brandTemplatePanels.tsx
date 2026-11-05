@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { blobToLoadedImage } from "@/features/capture/import";
 import { FONTS } from "@/lib/assets/fonts";
 import { applyTemplate, TEMPLATES, type Template } from "@/lib/assets/templates";
+import { track, trackTemplate } from "@/lib/analytics/track";
 import { parseTemplateFile, serializeTemplates, templateFromDocument, templateTags } from "@/lib/assets/template-io";
 import { downloadBlob } from "@/lib/export/exporter";
 import { getCustomTemplates, getServerCustomTemplates, setCustomTemplates, subscribeCustomTemplates } from "@/lib/storage/templates";
@@ -42,7 +43,10 @@ function TemplateThumb({ template }: { template: Template }) {
     <button
       type="button"
       aria-label={`Apply ${template.name} template`}
-      onClick={() => editorStore.getState().update((d) => applyTemplate(d, template))}
+      onClick={() => {
+        trackTemplate(template, TEMPLATES.some((t) => t.id === template.id));
+        editorStore.getState().update((d) => applyTemplate(d, template));
+      }}
       className="overflow-hidden rounded-lg border border-white/10 transition hover:border-orange-500"
     >
       <canvas ref={ref} width={THUMB_WIDTH} height={thumbHeight} className="block h-auto w-full" />
@@ -92,6 +96,15 @@ export function TemplatesPanel() {
     <>
       <Section title="Templates">
         <p className="text-xs text-neutral-400">Your screenshot, text and annotations are kept when you switch.</p>
+        <a
+          href="/kit?utm_source=website&utm_medium=editor"
+          target="_blank"
+          rel="noopener"
+          onClick={() => track("kit_link", { from: "editor" })}
+          className="block rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-neutral-200 transition hover:border-orange-500"
+        >
+          Want more looks? Get the free Launch Kit <span aria-hidden="true">↗</span>
+        </a>
         <input
           type="search"
           aria-label="Search templates"

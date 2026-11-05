@@ -37,6 +37,10 @@ The same guide covers the optional "From URL" button, which screenshots a public
 - `src/lib/export/video.ts`, `audio.ts`: the frame-by-frame video and soundtrack export
 - `src/features/editor`: editor UI
 
+## Analytics and the Launch Kit page (optional)
+
+Both are off by default. See [docs/ANALYTICS.md](docs/ANALYTICS.md) for privacy-friendly analytics (Umami or Plausible) and [docs/KIT.md](docs/KIT.md) for the `/kit` page and its email sign-up.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
