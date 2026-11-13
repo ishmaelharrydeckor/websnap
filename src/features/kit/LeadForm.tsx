@@ -17,7 +17,7 @@ function readSource() {
   };
 }
 
-export function LeadForm({ id, compact = false }: { id?: string; compact?: boolean }) {
+export function LeadForm({ id, compact = false, onDone }: { id?: string; compact?: boolean; onDone?: () => void }) {
   const [email, setEmail] = useState("");
   const [trap, setTrap] = useState(""); // honeypot: real people never fill this in
   const [state, setState] = useState<State>({ kind: "idle" });
@@ -35,6 +35,7 @@ export function LeadForm({ id, compact = false }: { id?: string; compact?: boole
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; downloadUrl?: string | null };
       if (res.ok && data.ok) {
         track("kit_signup");
+        onDone?.();
         return setState({ kind: "done", downloadUrl: data.downloadUrl ?? null });
       }
       track("kit_signup_error", { reason: data.error ?? "unknown" });

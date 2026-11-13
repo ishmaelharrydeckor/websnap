@@ -5,6 +5,7 @@ import { blobToLoadedImage, blobToLoadedMedia, captureScreenFrame, firstImageFro
 import { startScreenRecording, type RecorderHandle } from "@/features/capture/record";
 import { copyPng, downloadBlob, EXPORT_FORMATS, exportBlob, exportFileName, type ExportFormat } from "@/lib/export/exporter";
 import { track } from "@/lib/analytics/track";
+import { requestKitPopupAfterExport } from "@/lib/kit/popup";
 import { TOOLS, translateLayer } from "@/lib/render/geometry";
 import { removeSegment, splitAt } from "@/lib/timeline/segments";
 import { BrandPanel, TemplatesPanel } from "./brandTemplatePanels";
@@ -237,6 +238,7 @@ export function Editor() {
       const blob = await exportBlob(state.doc, renderInputFor(state), { format, scale, time: state.playback.time });
       downloadBlob(blob, exportFileName(state.doc, format));
       track("export", { format, scale });
+      requestKitPopupAfterExport();
     } catch {
       notify("Export failed.");
     }
