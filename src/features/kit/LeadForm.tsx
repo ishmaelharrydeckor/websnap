@@ -51,13 +51,15 @@ export function LeadForm({ id, compact = false, onDone }: { id?: string; compact
   if (state.kind === "done") {
     return (
       <div id={id} role="status" className="w-full max-w-xl rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-6 text-left">
-        <p className="text-lg font-semibold text-white">You&apos;re in. Check your inbox.</p>
-        <p className="mt-1 text-sm text-neutral-300">We&apos;ve sent your Launch Kit. Import it from the Templates tab in the editor.</p>
-        {state.downloadUrl && (
-          <a href={state.downloadUrl} onClick={() => track("kit_download")} className="mt-4 inline-block rounded-full bg-white px-6 py-3 text-sm font-semibold text-neutral-950 hover:bg-neutral-200">
-            Download the kit now
+        <p className="text-lg font-semibold text-white">Your Launch Kit is ready.</p>
+        {state.downloadUrl ? (
+          <a href={state.downloadUrl} onClick={() => track("kit_download")} className="mt-4 flex w-full items-center justify-center rounded-full bg-white px-6 py-4 text-base font-semibold text-neutral-950 hover:bg-neutral-200 sm:w-auto sm:inline-flex">
+            Download the kit
           </a>
+        ) : (
+          <p className="mt-1 text-sm text-neutral-300">Thanks for signing up. The download link isn&apos;t available just yet.</p>
         )}
+        <p className="mt-4 text-sm text-neutral-300">Then open the editor, go to Templates, and choose Import file.</p>
       </div>
     );
   }
@@ -89,7 +91,7 @@ export function LeadForm({ id, compact = false, onDone }: { id?: string; compact
           {state.kind === "loading" ? "Sending…" : "Get the free kit"}
         </button>
       </div>
-      <p className="mt-3 text-left text-xs text-neutral-500">Free. One email with your download, then occasional tips. Unsubscribe any time.</p>
+      <p className="mt-3 text-left text-xs text-neutral-500">Free instant download. We may email you occasional tips. Unsubscribe any time.</p>
       {state.kind === "error" && (
         <p role="alert" className="mt-3 text-left text-sm text-rose-300">
           {state.message}
